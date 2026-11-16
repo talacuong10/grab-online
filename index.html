@@ -214,6 +214,16 @@
             required />
         </div>
 
+        <div>
+          <label for="driver-pass-input" class="block text-sm font-bold text-slate-700 mb-1.5">
+            Mật khẩu tài khoản <span class="text-xs font-normal text-slate-400">(để trống = chơi khách, không lưu tiến trình)</span>
+          </label>
+          <input id="driver-pass-input" type="password" maxlength="32"
+            placeholder="Đặt mật khẩu để tạo tài khoản & lưu tiền/xe/cấp..."
+            class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold focus:border-[#00b14f] focus:ring-2 focus:ring-emerald-200 outline-none transition" />
+          <p id="account-hint" class="text-[11px] text-slate-500 mt-1.5 leading-relaxed"></p>
+        </div>
+
         <div class="rounded-2xl bg-emerald-50/90 border border-emerald-200 p-3.5 text-xs text-slate-700 space-y-1.5">
           <div class="font-extrabold text-[#007a36]">🗺️ Nâng cấp Toàn diện Phiên bản Mới:</div>
           <ul class="space-y-0.5 text-[11px] leading-relaxed list-disc pl-4">
@@ -676,7 +686,7 @@
     <!-- Popup ĐUA GỠ PHẠT khi vượt đèn đỏ -->
     <div id="duel-popup" class="hidden fixed top-[86px] left-1/2 -translate-x-1/2 z-40 pointer-events-auto w-[min(92vw,430px)] rounded-3xl bg-slate-900/95 text-white shadow-2xl border-2 border-red-400/70 p-4">
       <div class="text-sm font-extrabold text-red-300">🚦 VƯỢT ĐÈN ĐỎ — CAMERA ĐÃ GHI HÌNH!</div>
-      <p class="text-xs mt-1.5 text-slate-200 leading-relaxed">CSGT cho bạn 1 cơ hội: <b>ĐUA VỚI GIAO THÔNG</b> tới cổng đích <b id="duel-finish-name">—</b> (cách ~<span id="duel-dist">700</span>m). Thắng = <b class="text-emerald-300">khỏi phạt + thưởng 20.000đ</b>. Thua / bỏ qua = <b class="text-red-300">phạt 50.000đ</b>.</p>
+      <p class="text-xs mt-1.5 text-slate-200 leading-relaxed">CSGT cho bạn 1 cơ hội: <b>ĐUA VỚI GIAO THÔNG</b> tới cổng đích <b id="duel-finish-name">—</b> (cách ~<span id="duel-dist">700</span>m). Thắng = <b class="text-emerald-300">khỏi phạt + thưởng 10.000đ</b>. Thua / bỏ qua = <b class="text-red-300">phạt 50.000đ</b>.</p>
       <div class="flex gap-2 mt-3">
         <button id="duel-accept-btn" type="button" class="flex-1 rounded-xl bg-[#00b14f] hover:bg-[#009843] active:scale-[0.98] font-extrabold py-2.5 text-sm cursor-pointer">🏁 ĐUA LUÔN (Enter)</button>
         <button id="duel-decline-btn" type="button" class="flex-1 rounded-xl bg-slate-700 hover:bg-slate-600 active:scale-[0.98] font-extrabold py-2.5 text-sm cursor-pointer">💸 Chịu phạt</button>
@@ -2381,8 +2391,9 @@
     // ==================== 4. TRẠNG THÁI & LƯU TIẾN TRÌNH ====================
     const STORAGE_KEY = 'grab_q1_singlefile_v1';
     const NAME_KEY = 'grab_q1_driver_name';
-    // Chế độ PHÒNG CHƠI CHUNG: mỗi lần vào là 1 tài khoản MỚI — xóa sạch dữ liệu lưu cũ
-    // (tiền, xe, cấp bậc...) trên máy người chơi và luôn bắt đầu lại từ đầu cho công bằng.
+    // Xóa sạch dữ liệu lưu KIỂU CŨ (bản trước khi có tài khoản) trên máy người chơi.
+    // Từ bản này: chơi KHÁCH (không mật khẩu) = mỗi lần vào làm lại từ đầu;
+    // có TÀI KHOẢN (tên + mật khẩu, section 13) thì tiến trình được lưu và khôi phục đầy đủ.
     // Chỉ nhớ riêng TÊN tài xế để lần sau khỏi gõ lại (tránh cả phòng trùng tên mặc định).
     function loadSaveData() {
       try { localStorage.removeItem(STORAGE_KEY); } catch (_) { }
@@ -2513,10 +2524,38 @@
     initQuestSystem();
 
     function persistSaveData() {
-      // Không lưu tiến trình: mỗi lần vào là 1 tài khoản mới,
-      // tiền bạc / xe / cấp bậc đều làm lại từ đầu (xem loadSaveData).
-      // Chỉ lưu TÊN tài xế để lần sau tự điền sẵn ở màn hình vào ca.
+      // Luôn nhớ TÊN tài xế gần nhất để lần sau tự điền sẵn ở màn hình vào ca.
       try { if (state.driverName) localStorage.setItem(NAME_KEY, state.driverName); } catch (_) { }
+      // Đang đăng nhập TÀI KHOẢN thì lưu toàn bộ tiến trình vào hồ sơ tài khoản (xem section 13).
+      if (typeof ACC !== 'undefined' && ACC && ACC.current) {
+        try {
+          const store = accLoadStore();
+          const key = ACC.current.toLowerCase();
+          if (store[key]) {
+            const rank = getCareerRank(state.completedOrders);
+            store[key].data = {
+              driverName: state.driverName,
+              balance: state.balance,
+              completedOrders: state.completedOrders,
+              careerRankLevel: rank.level,
+              ownedVehicles: state.ownedVehicles,
+              currentVehicleId: state.currentVehicleId,
+              ownedStyles: state.ownedStyles,
+              currentStyleId: state.currentStyleId,
+              durability: state.durability,
+              escapedCount: state.escapedCount,
+              finesCount: state.finesCount,
+              crashCount: state.crashCount,
+              xp: state.xp,
+              level: state.level,
+              energy: Math.round(state.energy),
+              quests: state.quests
+            };
+            store[key].updatedAt = Date.now();
+            accSaveStore(store);
+          }
+        } catch (_) { }
+      }
     }
 
     function getCurrentVehicleSpec() {
@@ -3283,7 +3322,7 @@
       const pickup = idx === 0 ? PICKUP_SPOTS[0] : PICKUP_SPOTS[Math.floor(Math.random() * PICKUP_SPOTS.length)];
       const dropoff = idx === 0 ? DROPOFF_SPOTS[0] : DROPOFF_SPOTS[Math.floor(Math.random() * DROPOFF_SPOTS.length)];
       const dist = Math.abs(pickup.x - dropoff.x) + Math.abs(pickup.z - dropoff.z);
-      const baseReward = Math.round((32000 + dist * 48) / 1000) * 1000;
+      const baseReward = Math.round((18000 + dist * 26) / 1000) * 1000;
       const veh = getCurrentVehicleSpec();
       const rank = getCareerRank(state.completedOrders);
       const energyTipMult = state.energy > 80 ? 1.10 : 1.0;
@@ -8192,8 +8231,10 @@
             ? 0
             : (isDamaged ? 0.6 : 1.0) * (isTired ? 0.85 : 1.0);
           const sputter = isDamaged && Math.abs(throttle) > 0.05 ? 0.72 + 0.34 * Math.sin(elapsed * 22) : 1.0;
-          const topSpeed = veh.maxSpeed * (FEAT.unlock ? 1.6 : (boost ? 1.25 : 1.0)) * speedPenalty;
-          const accelRate = veh.accel * (FEAT.unlock ? 1.45 : (boost ? 1.3 : 1.0)) * speedPenalty * sputter;
+          // UNLOCK SPEED: phá giới hạn thêm +100 km/h so với tốc độ tối đa hiển thị của xe
+          const unlockMult = 1 + 100 / veh.speedKmh;
+          const topSpeed = veh.maxSpeed * (FEAT.unlock ? unlockMult : (boost ? 1.25 : 1.0)) * speedPenalty;
+          const accelRate = veh.accel * (FEAT.unlock ? 1.6 : (boost ? 1.3 : 1.0)) * speedPenalty * sputter;
 
           FEAT.drifting = false;
           const driftActive = !state.isGameOver && !state.activeVenueId
@@ -9392,6 +9433,9 @@
         return;
       }
 
+      // TÀI KHOẢN: đăng nhập / tạo tài khoản / chơi khách (section 13) — sai mật khẩu thì chặn ở đây
+      if (!accHandleLogin(name)) return;
+
       state.joined = true;
       state.driverName = name;
       persistSaveData();
@@ -9795,7 +9839,7 @@
       if (unlockBtn) unlockBtn.classList.toggle('feat-on', FEAT.unlock);
       if (unlockChip) unlockChip.classList.toggle('hidden', !FEAT.unlock);
       showGameToast(FEAT.unlock
-        ? '🔓 ĐÃ MỞ KHÓA TỐC ĐỘ! Phá giới hạn x1.6 — nhưng hao xe & dễ bị phạt nguội!'
+        ? '🔓 ĐÃ MỞ KHÓA TỐC ĐỘ! +100 km/h phá giới hạn — nhưng hao xe & dễ bị phạt nguội!'
         : '🔒 Đã khóa tốc độ về bình thường.', 2600);
     }
     if (unlockBtn) unlockBtn.addEventListener('click', featToggleUnlock);
@@ -9827,7 +9871,7 @@
         FEAT.driftIdle += 0.12;
         if (FEAT.driftIdle >= 0.6) {
           FEAT.wasDrifting = false;
-          const bonus = Math.min(15000, Math.floor(FEAT.driftScore) * 10);
+          const bonus = Math.min(8000, Math.floor(FEAT.driftScore) * 6);
           FEAT.driftScore = 0;
           if (bonus >= 2000 && state.joined && !state.isGameOver) {
             state.balance += bonus;
@@ -9893,7 +9937,7 @@
       try { best = Number(localStorage.getItem('grab_q1_race_best_ms')) || 0; } catch (_) { }
       const isRecord = !best || ms < best;
       if (isRecord) { try { localStorage.setItem('grab_q1_race_best_ms', String(ms)); } catch (_) { } }
-      const reward = ms <= 120000 ? 50000 : (ms <= 180000 ? 30000 : 15000);
+      const reward = ms <= 120000 ? 25000 : (ms <= 180000 ? 15000 : 8000);
       state.balance += reward;
       updateEconomyHUD();
       raceStop('');
@@ -10091,13 +10135,13 @@
     function duelWin() {
       duelCleanup();
       state.escapedCount += 1;
-      state.balance += 20000;
+      state.balance += 10000;
       persistSaveData();
       updateEconomyHUD();
       audio.playSuccess(true);
-      showGameToast('🏆 THẮNG KÈO ĐUA GỠ PHẠT! Khỏi phạt + thưởng 20.000đ!', 4200);
-      appendRadio('CSGT Quận 1', '🏆 Tài xế thắng kèo đua gỡ phạt — HỦY biên bản vượt đèn đỏ, thưởng nóng 20.000đ!', true);
-      if (MP.socket && MP.joined) mpSendChat('🏆 Tui vừa thắng kèo ĐUA GỠ PHẠT sau khi vượt đèn đỏ — khỏi phạt còn được thưởng 20k!');
+      showGameToast('🏆 THẮNG KÈO ĐUA GỠ PHẠT! Khỏi phạt + thưởng 10.000đ!', 4200);
+      appendRadio('CSGT Quận 1', '🏆 Tài xế thắng kèo đua gỡ phạt — HỦY biên bản vượt đèn đỏ, thưởng nóng 10.000đ!', true);
+      if (MP.socket && MP.joined) mpSendChat('🏆 Tui vừa thắng kèo ĐUA GỠ PHẠT sau khi vượt đèn đỏ — khỏi phạt còn được thưởng 10k!');
     }
 
     function duelLose(why) {
@@ -10166,6 +10210,165 @@
       }
     }
     requestAnimationFrame(duelTick);
+
+    // ==================== 13. TÀI KHOẢN NGƯỜI CHƠI: tạo tài khoản + lưu tiến trình trên máy ====================
+    // Tài khoản = Tên tài xế + Mật khẩu, lưu trong localStorage của chính máy người chơi.
+    // Đăng nhập lại đúng tên + mật khẩu là khôi phục đủ tiền / xe / cấp / nhiệm vụ.
+    // Để trống mật khẩu = chơi khách (không lưu, mỗi lần vào làm lại từ đầu như trước).
+    var ACC = { current: null };
+    const ACCOUNTS_KEY = 'grab_q1_accounts_v1';
+    const SESSION_KEY = 'grab_q1_session_v1';
+
+    function accLoadStore() {
+      try { return JSON.parse(localStorage.getItem(ACCOUNTS_KEY)) || {}; } catch (_) { return {}; }
+    }
+    function accSaveStore(store) {
+      try { localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(store)); } catch (_) { }
+    }
+    function accLoadSession() {
+      try { return JSON.parse(localStorage.getItem(SESSION_KEY)) || null; } catch (_) { return null; }
+    }
+    function accSaveSession(name) {
+      try {
+        if (name) localStorage.setItem(SESSION_KEY, JSON.stringify({ name }));
+        else localStorage.removeItem(SESSION_KEY);
+      } catch (_) { }
+    }
+    function accHash(name, pass) {
+      const s = `grabq1::${name.toLowerCase()}::${pass}`;
+      let h1 = 0x811c9dc5;
+      let h2 = 5381;
+      for (let round = 0; round < 3; round++) {
+        for (let i = 0; i < s.length; i++) {
+          h1 = Math.imul(h1 ^ s.charCodeAt(i), 0x01000193) >>> 0;
+          h2 = (Math.imul(h2, 33) ^ s.charCodeAt(i)) >>> 0;
+        }
+        h1 = (h1 ^ h2) >>> 0;
+      }
+      return `h${h1.toString(16)}${h2.toString(16)}`;
+    }
+
+    // Khôi phục tiến trình của tài khoản vào state (chạy lúc đăng nhập, trước khi vào ca)
+    function applyAccountData(d) {
+      if (!d) return;
+      if (Number.isFinite(d.balance)) state.balance = d.balance;
+      if (Number.isFinite(d.completedOrders)) state.completedOrders = d.completedOrders;
+      if (Array.isArray(d.ownedVehicles) && d.ownedVehicles.length) {
+        state.ownedVehicles = Array.from(new Set(['wave', ...d.ownedVehicles.map(normalizeVehicleId)]));
+      }
+      state.currentVehicleId = normalizeVehicleId(d.currentVehicleId);
+      if (!state.ownedVehicles.includes(state.currentVehicleId)) state.currentVehicleId = 'wave';
+      if (Array.isArray(d.ownedStyles) && d.ownedStyles.length) {
+        state.ownedStyles = Array.from(new Set(['grab_classic', ...d.ownedStyles]));
+      }
+      state.currentStyleId = resolveDriverStyle(d.currentStyleId).id;
+      if (Number.isFinite(d.durability)) state.durability = Math.max(0, Math.min(100, d.durability));
+      if (Number.isFinite(d.escapedCount)) state.escapedCount = d.escapedCount;
+      if (Number.isFinite(d.finesCount)) state.finesCount = d.finesCount;
+      if (Number.isFinite(d.crashCount)) state.crashCount = d.crashCount;
+      if (Number.isFinite(d.xp)) state.xp = Math.max(0, Math.floor(d.xp));
+      if (Number.isFinite(d.level)) state.level = Math.max(1, Math.floor(d.level));
+      if (Number.isFinite(d.energy)) state.energy = Math.max(0, Math.min(100, d.energy));
+      if (d.quests && Array.isArray(d.quests.daily)) {
+        const today = getTodayDateKey();
+        state.quests = {
+          dailyDate: d.quests.dailyDate || today,
+          daily: d.quests.daily,
+          ontimeStreak: Number.isFinite(d.quests.ontimeStreak) ? d.quests.ontimeStreak : 0,
+          storyStep: Number.isFinite(d.quests.storyStep) ? d.quests.storyStep : 1,
+          storyCompleted: Boolean(d.quests.storyCompleted),
+          storyFailedFlag: Boolean(d.quests.storyFailedFlag)
+        };
+        if (state.quests.dailyDate !== today) {
+          state.quests.dailyDate = today;
+          state.quests.daily = pickRandomDailyQuests();
+          state.quests.ontimeStreak = 0;
+        }
+      }
+    }
+
+    // Cổng tài khoản ở màn hình vào ca: trả về false nếu phải chặn (sai mật khẩu / mật khẩu quá ngắn)
+    function accHandleLogin(name) {
+      const passEl = $('driver-pass-input');
+      const pass = passEl ? passEl.value : '';
+      const store = accLoadStore();
+      const key = name.toLowerCase();
+      const existing = store[key];
+      const session = accLoadSession();
+      if (existing) {
+        const viaSession = Boolean(session && session.name && session.name.toLowerCase() === key && !pass);
+        if (!viaSession && accHash(name, pass) !== existing.hash) {
+          loginErrorMsg.textContent = '🔐 Tên này đã có tài khoản — nhập đúng mật khẩu để lấy lại tiến trình (hoặc đổi tên khác / để trống mật khẩu nếu chính là bạn và máy này đã nhớ đăng nhập).';
+          loginErrorMsg.classList.remove('hidden');
+          return false;
+        }
+        ACC.current = existing.name;
+        accSaveSession(existing.name);
+        applyAccountData(existing.data);
+        setTimeout(() => showGameToast(`👋 Chào mừng trở lại, ${existing.name}! Đã khôi phục tiến trình: ${formatVND(state.balance)}, xe ${getCurrentVehicleSpec().shortLabel}, cấp ${state.level}.`, 3600), 700);
+        accRefreshPanel();
+        return true;
+      }
+      if (pass) {
+        if (pass.length < 4) {
+          loginErrorMsg.textContent = 'Mật khẩu cần tối thiểu 4 ký tự (hoặc để trống để chơi khách không lưu).';
+          loginErrorMsg.classList.remove('hidden');
+          return false;
+        }
+        store[key] = { name, hash: accHash(name, pass), data: null, createdAt: Date.now() };
+        accSaveStore(store);
+        ACC.current = name;
+        accSaveSession(name);
+        setTimeout(() => showGameToast('🆕 Đã tạo tài khoản mới! Từ nay tiền / xe / cấp của bạn tự lưu theo tài khoản này.', 3600), 700);
+        accRefreshPanel();
+        return true;
+      }
+      ACC.current = null;
+      accRefreshPanel();
+      return true;
+    }
+
+    // Nhãn tài khoản + nút đăng xuất ở cuối bảng Tài xế online
+    function accRefreshPanel() {
+      const label = $('acc-label');
+      const btn = $('acc-logout-btn');
+      if (label) label.textContent = ACC.current ? `👤 Tài khoản: ${ACC.current} (đang lưu tiến trình)` : '👤 Chơi khách — tiến trình KHÔNG lưu';
+      if (btn) btn.style.display = ACC.current ? '' : 'none';
+    }
+    (function accBuildPanelFooter() {
+      if (!mpPanel || $('acc-label')) return;
+      const foot = document.createElement('div');
+      foot.className = 'px-3 py-2 border-t border-slate-100 flex items-center justify-between gap-2';
+      foot.innerHTML = '<span id="acc-label" class="text-[11px] font-bold text-slate-500">👤 Chơi khách — tiến trình KHÔNG lưu</span>'
+        + '<button id="acc-logout-btn" type="button" class="text-[11px] font-extrabold text-red-500 hover:text-red-600 cursor-pointer" style="display:none">Đăng xuất</button>';
+      mpPanel.appendChild(foot);
+      $('acc-logout-btn').addEventListener('click', () => {
+        accSaveSession(null);
+        ACC.current = null;
+        location.reload();
+      });
+    })();
+
+    // Gợi ý tài khoản dưới ô mật khẩu + trạng thái gõ phím cho ô mật khẩu
+    (function accInitLoginUI() {
+      const passEl = $('driver-pass-input');
+      if (passEl) {
+        passEl.addEventListener('focus', () => (state.isTyping = true));
+        passEl.addEventListener('blur', () => (state.isTyping = false));
+      }
+      const hint = $('account-hint');
+      if (!hint) return;
+      const store = accLoadStore();
+      const names = Object.values(store).map((a) => a.name);
+      const session = accLoadSession();
+      if (session && session.name && store[session.name.toLowerCase()]) {
+        hint.textContent = `💾 Máy này đang nhớ tài khoản "${session.name}" — nhập đúng tên đó (để trống mật khẩu cũng được) là vào lại đúng tiến trình đã lưu.`;
+      } else if (names.length) {
+        hint.textContent = `💾 Trên máy này đã có tài khoản: ${names.join(', ')}. Nhập đúng tên + mật khẩu để lấy lại tiến trình.`;
+      } else {
+        hint.textContent = '💾 Chưa có tài khoản nào trên máy này — đặt mật khẩu bất kỳ (từ 4 ký tự) là hệ thống tự tạo tài khoản và lưu tiến trình cho bạn.';
+      }
+    })();
   </script>
 </body>
 
