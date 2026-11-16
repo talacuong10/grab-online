@@ -558,9 +558,10 @@
       </div>
     </div>
 
-    <!-- Cột trái dùng chung: thẻ đơn / bảng online / bộ đàm xếp chồng theo cột, không đè nhau -->
+    <!-- Cột trái dùng chung: thẻ đơn / bảng online / bộ đàm xếp chồng theo cột, không đè nhau.
+         Chiều cao bị giới hạn chừa vùng an toàn dưới cột HUD trên (độ bền/năng lượng) nên không bao giờ chạm nhau -->
     <div id="left-stack"
-      class="fixed left-3 bottom-3 z-30 flex flex-col gap-2.5 w-[328px] max-w-[calc(100vw-24px)] max-h-[calc(100dvh-165px)] overflow-y-auto custom-scroll pointer-events-none pr-0.5">
+      class="fixed left-3 bottom-3 z-30 flex flex-col gap-2.5 w-[328px] max-w-[calc(100vw-24px)] max-h-[calc(100dvh-300px)] md:max-h-[calc(100dvh-430px)] overflow-y-auto custom-scroll pointer-events-none pr-0.5">
     <!-- THẺ APP GRAB DRIVER (Góc trái) -->
     <section id="order-card"
       class="pointer-events-auto w-full shrink-0 rounded-3xl bg-white shadow-2xl border border-emerald-200 overflow-hidden">
@@ -643,7 +644,7 @@
           class="bg-yellow-400 hover:bg-yellow-300 active:scale-95 text-slate-900 text-[11px] font-extrabold px-2.5 py-1 rounded-full cursor-pointer whitespace-nowrap"
           title="Dịch chuyển ngay về điểm hẹn Chợ Bến Thành để gặp các tài xế khác">📍 Về điểm hẹn</button>
       </div>
-      <div id="mp-list" class="max-h-[110px] overflow-y-auto custom-scroll p-2 space-y-1 text-[11px] bg-white">
+      <div id="mp-list" class="max-h-[72px] overflow-y-auto custom-scroll p-2 space-y-1 text-[11px] bg-white">
         <div class="text-slate-500 font-semibold">Đang kết nối phòng online...</div>
       </div>
     </section>
@@ -657,7 +658,7 @@
         <span class="text-[10px] text-slate-300">Thu gọn</span>
       </div>
       <div id="radio-body">
-        <div id="radio-messages" class="h-[74px] overflow-y-auto custom-scroll p-2.5 space-y-1 text-xs bg-white">
+        <div id="radio-messages" class="h-[54px] overflow-y-auto custom-scroll p-2.5 space-y-1 text-xs bg-white">
           <div class="text-[#007a36] font-semibold text-[11px]">
             🛵 Tích lũy tiền giao hàng để mở khóa xe xịn trong Cửa Hàng Xe (phím G) nhé!
           </div>
@@ -2386,7 +2387,7 @@
 
     // ==================== 4. TRẠNG THÁI & LƯU TIẾN TRÌNH ====================
     const STORAGE_KEY = 'grab_q1_singlefile_v1';
-    const NAME_KEY = 'grab_q1_driver_name';
+    const NAME_KEY = 'grab_q1_driver_name_v3';
     // Xóa sạch dữ liệu lưu KIỂU CŨ (bản trước khi có tài khoản) trên máy người chơi.
     // Từ bản này: chơi KHÁCH (không mật khẩu) = mỗi lần vào làm lại từ đầu;
     // có TÀI KHOẢN (tên + mật khẩu, section 13) thì tiến trình được lưu và khôi phục đầy đủ.
@@ -9965,9 +9966,9 @@
       const ms = Date.now() - RACE.startedAt;
       const t = fmtRaceTime(ms);
       let best = 0;
-      try { best = Number(localStorage.getItem('grab_q1_race_best_ms')) || 0; } catch (_) { }
+      try { best = Number(localStorage.getItem('grab_q1_race_best_ms_v3')) || 0; } catch (_) { }
       const isRecord = !best || ms < best;
-      if (isRecord) { try { localStorage.setItem('grab_q1_race_best_ms', String(ms)); } catch (_) { } }
+      if (isRecord) { try { localStorage.setItem('grab_q1_race_best_ms_v3', String(ms)); } catch (_) { } }
       const reward = ms <= 120000 ? 25000 : (ms <= 180000 ? 15000 : 8000);
       state.balance += reward;
       updateEconomyHUD();
@@ -10284,13 +10285,18 @@
     // Tên NHÂN VẬT (tên tài xế hiển thị trong game) tách riêng khỏi tên đăng nhập, đổi lúc nào cũng được.
     // Đăng nhập lại đúng username + mật khẩu là khôi phục đủ tiền / xe / cấp / nhiệm vụ.
     // Để trống Tên đăng nhập = chơi khách (không lưu, mỗi lần vào làm lại từ đầu).
-    // Bản v2 RESET toàn bộ tài khoản v1 (vốn keyed theo tên tài xế) theo yêu cầu làm lại hệ tài khoản.
+    // Bản v3 RESET TOÀN BỘ data theo yêu cầu sếp (2026-11-16 tối): tài khoản v1/v2, phiên đăng nhập,
+    // tên đã nhớ và kỷ lục đua cũ đều bị xóa — mọi người chơi bắt đầu lại từ đầu.
     var ACC = { current: null };
-    const ACCOUNTS_KEY = 'grab_q1_accounts_v2';
-    const SESSION_KEY = 'grab_q1_session_v2';
+    const ACCOUNTS_KEY = 'grab_q1_accounts_v3';
+    const SESSION_KEY = 'grab_q1_session_v3';
     try {
       localStorage.removeItem('grab_q1_accounts_v1');
       localStorage.removeItem('grab_q1_session_v1');
+      localStorage.removeItem('grab_q1_accounts_v2');
+      localStorage.removeItem('grab_q1_session_v2');
+      localStorage.removeItem('grab_q1_driver_name');
+      localStorage.removeItem('grab_q1_race_best_ms');
     } catch (_) { }
 
     function accLoadStore() {
