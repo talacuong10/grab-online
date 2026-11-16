@@ -233,7 +233,8 @@
           <div><b class="text-slate-800">E / G / J / F:</b> Đơn / Xe / NV / Giải trí</div>
           <div><b class="text-slate-800">X:</b> Mở khóa tốc độ (coi chừng phạt nguội!)</div>
           <div><b class="text-slate-800">Space + cua gấp:</b> Drift cháy đường</div>
-          <div><b class="text-slate-800">C:</b> Đua phố Quận 1 tính giờ</div>
+          <div><b class="text-slate-800">B:</b> Đua phố Quận 1 tính giờ</div>
+          <div><b class="text-slate-800">Vượt đèn đỏ:</b> Được rủ ĐUA GỠ PHẠT — thắng là khỏi phạt!</div>
           <div><b class="text-slate-800">Leo lề:</b> Nhanh nhưng nguy cơ bị CSGT bắt tăng dần!</div>
         </div>
 
@@ -672,12 +673,24 @@
       <div id="unlock-chip" class="hidden px-4 py-2 rounded-2xl bg-orange-600/90 text-white text-xs font-extrabold shadow-xl border border-orange-200/70">🔓 UNLOCK SPEED — đang phá giới hạn tốc độ!</div>
     </div>
 
+    <!-- Popup ĐUA GỠ PHẠT khi vượt đèn đỏ -->
+    <div id="duel-popup" class="hidden fixed top-[86px] left-1/2 -translate-x-1/2 z-40 pointer-events-auto w-[min(92vw,430px)] rounded-3xl bg-slate-900/95 text-white shadow-2xl border-2 border-red-400/70 p-4">
+      <div class="text-sm font-extrabold text-red-300">🚦 VƯỢT ĐÈN ĐỎ — CAMERA ĐÃ GHI HÌNH!</div>
+      <p class="text-xs mt-1.5 text-slate-200 leading-relaxed">CSGT cho bạn 1 cơ hội: <b>ĐUA VỚI GIAO THÔNG</b> tới cổng đích <b id="duel-finish-name">—</b> (cách ~<span id="duel-dist">700</span>m). Thắng = <b class="text-emerald-300">khỏi phạt + thưởng 20.000đ</b>. Thua / bỏ qua = <b class="text-red-300">phạt 50.000đ</b>.</p>
+      <div class="flex gap-2 mt-3">
+        <button id="duel-accept-btn" type="button" class="flex-1 rounded-xl bg-[#00b14f] hover:bg-[#009843] active:scale-[0.98] font-extrabold py-2.5 text-sm cursor-pointer">🏁 ĐUA LUÔN (Enter)</button>
+        <button id="duel-decline-btn" type="button" class="flex-1 rounded-xl bg-slate-700 hover:bg-slate-600 active:scale-[0.98] font-extrabold py-2.5 text-sm cursor-pointer">💸 Chịu phạt</button>
+      </div>
+      <div class="h-1.5 bg-white/15 rounded-full mt-3 overflow-hidden"><div id="duel-count-bar" class="h-full bg-red-400" style="width:100%"></div></div>
+      <div class="text-[10px] text-slate-400 mt-1">Quyết định trong <span id="duel-count">10</span>s — hết giờ coi như chịu phạt. Xe vẫn chạy, đừng đứng yên!</div>
+    </div>
+
     <!-- Đồng hồ tốc độ & Còi (Góc dưới phải) -->
     <div class="pointer-events-auto fixed bottom-3 right-3 flex items-end gap-2">
       <button id="race-btn" type="button"
         class="hud-card hover:bg-emerald-50 active:scale-95 rounded-2xl px-3.5 py-3 text-sm font-extrabold text-slate-700 cursor-pointer"
-        title="Đua phố Quận 1 (C)">
-        🏁 <span class="text-xs">Đua (C)</span>
+        title="Đua phố Quận 1 (B)">
+        🏁 <span class="text-xs">Đua (B)</span>
       </button>
       <button id="unlock-btn" type="button"
         class="hud-card hover:bg-emerald-50 active:scale-95 rounded-2xl px-3.5 py-3 text-sm font-extrabold text-slate-700 cursor-pointer"
@@ -6644,7 +6657,7 @@
               const axis = Math.abs(moveDx) >= Math.abs(moveDz) ? 'ew' : 'ns';
               const sigState = inter.currentSignals[axis].state;
               if (sigState === 'RED' && state.violationCooldown <= 0) {
-                this.triggerTrafficEnforcement(`Vượt đèn đỏ tại ${inter.name}`, inter.isHotspot);
+                featRedLightChallenge(inter);
               }
             }
           }
@@ -9891,6 +9904,7 @@
     }
     function featToggleRace() {
       if (!state.joined || state.isGameOver) return;
+      if (DUEL.open || DUEL.active) { showGameToast('🚦 Đang có kèo ĐUA GỠ PHẠT — xử lý xong kèo này đã!', 2200); return; }
       if (FEAT.racing) { raceStop('Đã hủy cuộc đua.'); return; }
       if (state.orderPhase !== 'idle') { showGameToast('🏁 Đang có đơn — giao/hủy đơn xong rồi đua nhé!', 2400); return; }
       FEAT.racing = true;
@@ -9929,7 +9943,7 @@
     document.addEventListener('keydown', (e) => {
       if (!state.joined || state.isTyping || e.repeat) return;
       if (e.code === 'KeyX') featToggleUnlock();
-      if (e.code === 'KeyC') featToggleRace();
+      if (e.code === 'KeyB') featToggleRace();
     });
     if (mobileDriftBtn) {
       mobileDriftBtn.addEventListener('touchstart', () => (state.mobileDrift = true), { passive: true });
@@ -9937,6 +9951,220 @@
       mobileDriftBtn.addEventListener('mousedown', () => (state.mobileDrift = true));
       mobileDriftBtn.addEventListener('mouseup', () => (state.mobileDrift = false));
     }
+
+    // ==================== 12. ĐUA GỠ PHẠT: vượt đèn đỏ -> rủ đua với giao thông, thắng khỏi phạt ====================
+    const DUEL = {
+      open: false,        // popup đang hiện, chờ người chơi quyết định
+      active: false,      // đang đua với đối thủ
+      inter: null,
+      decideBy: 0,
+      finish: null,
+      rival: null,
+      group: null,
+      deadline: 0,
+      chipAccum: 0,
+    };
+    const duelPopup = $('duel-popup');
+    const duelFinishName = $('duel-finish-name');
+    const duelDistEl = $('duel-dist');
+    const duelCountBar = $('duel-count-bar');
+    const duelCountEl = $('duel-count');
+    const duelAcceptBtn = $('duel-accept-btn');
+    const duelDeclineBtn = $('duel-decline-btn');
+
+    function duelPickFinish() {
+      const px = world.player.x;
+      const pz = world.player.z;
+      const cands = RACE_GATES.concat(PICKUP_SPOTS, DROPOFF_SPOTS).map((s) => ({
+        name: s.name, x: s.x, z: s.z, d: Math.hypot(s.x - px, s.z - pz),
+      }));
+      const inRange = cands.filter((c) => c.d >= 600 && c.d <= 1150);
+      if (inRange.length) return inRange[Math.floor(Math.random() * inRange.length)];
+      cands.sort((a, b) => b.d - a.d);
+      return cands[0];
+    }
+
+    // Điểm vào từ checkPlayerTrafficViolations khi vượt đèn đỏ
+    function featRedLightChallenge(inter) {
+      if (DUEL.open || DUEL.active || FEAT.racing || state.isGameOver) {
+        world.triggerTrafficEnforcement(`Vượt đèn đỏ tại ${inter.name}`, inter.isHotspot);
+        return;
+      }
+      DUEL.open = true;
+      DUEL.inter = inter;
+      DUEL.finish = duelPickFinish();
+      DUEL.decideBy = Date.now() + 10000;
+      state.violationCooldown = 8;
+      if (duelFinishName) duelFinishName.textContent = DUEL.finish.name;
+      if (duelDistEl) duelDistEl.textContent = Math.round(DUEL.finish.d);
+      if (duelPopup) duelPopup.classList.remove('hidden');
+      audio.playPoliceSiren();
+      appendRadio('CSGT Quận 1', `🚦 Camera ghi hình vượt đèn đỏ tại ${inter.name}! Tài xế được rủ ĐUA GỠ PHẠT!`, true);
+    }
+
+    function duelHidePopup() {
+      DUEL.open = false;
+      if (duelPopup) duelPopup.classList.add('hidden');
+    }
+
+    function duelApplyFine(reasonTitle) {
+      state.violationCooldown = 4.0;
+      state.balance -= 50000;
+      state.finesCount += 1;
+      persistSaveData();
+      updateEconomyHUD();
+      audio.playPoliceSiren();
+      showPoliceFineOverlay('📸 PHẠT NGUỘI -50.000đ!', `${reasonTitle} • Trừ thẳng 50.000đ vào Ví Grab`);
+      appendRadio('CSGT Quận 1', `🚓 Biên bản -50.000đ: ${reasonTitle}. Số dư ví: ${formatVND(state.balance)}`, true);
+    }
+
+    function duelDecline() {
+      if (!DUEL.open) return;
+      duelHidePopup();
+      duelApplyFine(`Vượt đèn đỏ tại ${DUEL.inter ? DUEL.inter.name : 'ngã tư'} (không đua gỡ phạt)`);
+    }
+
+    function duelBuildGateVisual() {
+      const g = new THREE.Group();
+      const beam = new THREE.Mesh(
+        new THREE.CylinderGeometry(9, 13, 120, 20, 1, true),
+        new THREE.MeshBasicMaterial({ color: 0x00e667, transparent: true, opacity: 0.34, side: THREE.DoubleSide, depthWrite: false })
+      );
+      beam.position.y = 60;
+      const ring = new THREE.Mesh(
+        new THREE.RingGeometry(16, 22, 40),
+        new THREE.MeshBasicMaterial({ color: 0x00e667, transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false })
+      );
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.y = 0.6;
+      g.add(beam, ring);
+      g.visible = false;
+      world.scene.add(g);
+      DUEL.group = g;
+    }
+
+    function duelCleanup() {
+      DUEL.active = false;
+      if (DUEL.rival) {
+        world.scene.remove(DUEL.rival.root);
+        DUEL.rival = null;
+      }
+      if (DUEL.group) DUEL.group.visible = false;
+      if (raceChip && !FEAT.racing) raceChip.classList.add('hidden');
+    }
+
+    function duelAccept() {
+      if (!DUEL.open) return;
+      duelHidePopup();
+      const finish = DUEL.finish;
+      const path = findShortestRoadPath(world.player.x, world.player.z, finish.x, finish.z);
+      const pts = (path && path.centerPoints && path.centerPoints.length > 1)
+        ? path.centerPoints
+        : [{ x: world.player.x, z: world.player.z }, { x: finish.x, z: finish.z }];
+      const built = world.createVehicleMesh('z1000', '🏁 Đối thủ', false);
+      world.scene.add(built.root);
+      const veh = getCurrentVehicleSpec();
+      DUEL.rival = {
+        root: built.root,
+        wheels: built.wheels,
+        pts,
+        seg: 1,
+        x: world.player.x,
+        z: world.player.z,
+        rotation: world.player.rotation,
+        baseSpeed: Math.max(40, Math.min(88, veh.maxSpeed * 0.95)),
+      };
+      DUEL.rival.root.position.set(DUEL.rival.x, 0, DUEL.rival.z);
+      if (!DUEL.group) duelBuildGateVisual();
+      DUEL.group.position.set(finish.x, 0, finish.z);
+      DUEL.group.visible = true;
+      DUEL.active = true;
+      DUEL.deadline = Date.now() + 90000;
+      state.violationCooldown = 20;
+      if (raceChip) raceChip.classList.remove('hidden');
+      showGameToast(`🏁 ĐUA GỠ PHẠT! Về cổng đích "${finish.name}" trước đối thủ — thắng là khỏi phạt!`, 3400);
+      appendRadio('Đua gỡ phạt', '🏁 Kèo đua gỡ phạt bắt đầu! Cả phố nín thở theo dõi!', true);
+      audio.playHorn();
+    }
+
+    function duelWin() {
+      duelCleanup();
+      state.escapedCount += 1;
+      state.balance += 20000;
+      persistSaveData();
+      updateEconomyHUD();
+      audio.playSuccess(true);
+      showGameToast('🏆 THẮNG KÈO ĐUA GỠ PHẠT! Khỏi phạt + thưởng 20.000đ!', 4200);
+      appendRadio('CSGT Quận 1', '🏆 Tài xế thắng kèo đua gỡ phạt — HỦY biên bản vượt đèn đỏ, thưởng nóng 20.000đ!', true);
+      if (MP.socket && MP.joined) mpSendChat('🏆 Tui vừa thắng kèo ĐUA GỠ PHẠT sau khi vượt đèn đỏ — khỏi phạt còn được thưởng 20k!');
+    }
+
+    function duelLose(why) {
+      duelCleanup();
+      showGameToast(`🏁 ${why}`, 2600);
+      duelApplyFine(`Vượt đèn đỏ tại ${DUEL.inter ? DUEL.inter.name : 'ngã tư'} (thua kèo đua gỡ phạt)`);
+    }
+
+    if (duelAcceptBtn) duelAcceptBtn.addEventListener('click', duelAccept);
+    if (duelDeclineBtn) duelDeclineBtn.addEventListener('click', duelDecline);
+    document.addEventListener('keydown', (e) => {
+      if (!DUEL.open || state.isTyping) return;
+      if (e.code === 'Enter') duelAccept();
+      if (e.code === 'Escape') duelDecline();
+    });
+
+    let duelLast = performance.now();
+    function duelTick(now) {
+      requestAnimationFrame(duelTick);
+      const dt = Math.min(0.05, (now - duelLast) / 1000);
+      duelLast = now;
+
+      // Đếm ngược quyết định trên popup
+      if (DUEL.open) {
+        const remain = Math.max(0, DUEL.decideBy - now);
+        if (duelCountBar) duelCountBar.style.width = `${(remain / 10000) * 100}%`;
+        if (duelCountEl) duelCountEl.textContent = Math.ceil(remain / 1000);
+        if (remain <= 0) duelDecline();
+        return;
+      }
+      if (!DUEL.active || !DUEL.rival) return;
+      if (state.isGameOver) { duelCleanup(); return; }
+
+      const r = DUEL.rival;
+      const target = r.pts[r.seg];
+      if (!target || r.seg >= r.pts.length) { duelLose('Đối thủ đã về đích trước!'); return; }
+      const dx = target.x - r.x;
+      const dz = target.z - r.z;
+      const dist = Math.hypot(dx, dz);
+      if (dist < 9) {
+        r.seg += 1;
+      } else {
+        const pRem = Math.hypot(world.player.x - DUEL.finish.x, world.player.z - DUEL.finish.z);
+        const rRem = Math.hypot(r.x - DUEL.finish.x, r.z - DUEL.finish.z);
+        let sp = r.baseSpeed;
+        if (rRem - pRem > 130) sp *= 1.1;
+        else if (pRem - rRem > 130) sp *= 0.88;
+        r.x += (dx / dist) * sp * dt;
+        r.z += (dz / dist) * sp * dt;
+        r.rotation = Math.atan2(dx / dist, dz / dist);
+      }
+      r.root.position.set(r.x, 0, r.z);
+      r.root.rotation.y = r.rotation;
+      if (r.wheels) r.wheels.forEach((w) => { w.rotation.x += r.baseSpeed * dt * 0.42 });
+
+      // Người chơi về đích trước?
+      const pDist = Math.hypot(world.player.x - DUEL.finish.x, world.player.z - DUEL.finish.z);
+      if (pDist < 30) { duelWin(); return; }
+      if (now > DUEL.deadline) { duelLose('Hết giờ đua gỡ phạt!'); return; }
+
+      DUEL.chipAccum += dt;
+      if (DUEL.chipAccum > 0.15 && raceChip) {
+        DUEL.chipAccum = 0;
+        const rDist = Math.hypot(r.x - DUEL.finish.x, r.z - DUEL.finish.z);
+        raceChip.textContent = `🚦 ĐUA GỠ PHẠT — Đích: ${DUEL.finish.name} • Bạn còn ${Math.round(pDist)}m • Đối thủ còn ${Math.round(rDist)}m`;
+      }
+    }
+    requestAnimationFrame(duelTick);
   </script>
 </body>
 
