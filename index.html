@@ -8056,8 +8056,8 @@
             ? this.currentGpsPath
             : [{ x: this.player.x, z: this.player.z }, target];
 
-          ctx.strokeStyle = '#065f46';
-          ctx.lineWidth = 4.2;
+          ctx.strokeStyle = '#111827';
+          ctx.lineWidth = 5;
           ctx.lineJoin = 'round';
           ctx.lineCap = 'round';
           ctx.beginPath();
@@ -8068,7 +8068,7 @@
           ctx.stroke();
 
           ctx.strokeStyle = this.navOverrideTarget ? this.navOverrideTarget.css : '#00ff66';
-          ctx.lineWidth = 2.4;
+          ctx.lineWidth = this.navOverrideTarget ? 3.2 : 2.4;
           ctx.beginPath();
           ctx.moveTo(mx(pts[0].x), mz(pts[0].z));
           for (let i = 1; i < pts.length; i++) {
@@ -9464,6 +9464,7 @@
 
       state.joined = true;
       state.driverName = name;
+      accRefreshPanel();
       persistSaveData();
       audio.ensureContext();
       world.rebuildPlayerVehicle(state.currentVehicleId);
