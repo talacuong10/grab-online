@@ -158,6 +158,22 @@
         display: none;
       }
     }
+
+    /* Panel tai xe online (multiplayer) — desktop: tren bo dam goc trai duoi; mobile: duoi minimap */
+    #mp-panel {
+      position: fixed;
+      left: 12px;
+      bottom: 182px;
+      width: 328px;
+      z-index: 25;
+    }
+    @media (max-width: 768px) {
+      #mp-panel {
+        width: 252px;
+        bottom: auto;
+        top: 148px;
+      }
+    }
   </style>
 </head>
 
@@ -604,6 +620,19 @@
             </button>
           </div>
         </div>
+      </div>
+    </section>
+
+    <!-- Tài xế online trong phòng (Multiplayer) -->
+    <section id="mp-panel" class="pointer-events-auto rounded-2xl bg-white shadow-xl border border-emerald-200 overflow-hidden" style="display:none">
+      <div class="bg-emerald-700 text-white px-3.5 py-2 flex items-center justify-between gap-2">
+        <span class="text-xs font-extrabold">👥 Tài xế online: <span id="mp-count">1</span>/20</span>
+        <button id="mp-rally-btn" type="button"
+          class="bg-yellow-400 hover:bg-yellow-300 active:scale-95 text-slate-900 text-[11px] font-extrabold px-2.5 py-1 rounded-full cursor-pointer whitespace-nowrap"
+          title="Dịch chuyển ngay về điểm hẹn Chợ Bến Thành để gặp các tài xế khác">📍 Về điểm hẹn</button>
+      </div>
+      <div id="mp-list" class="max-h-[110px] overflow-y-auto custom-scroll p-2 space-y-1 text-[11px] bg-white">
+        <div class="text-slate-500 font-semibold">Đang kết nối phòng online...</div>
       </div>
     </section>
 
@@ -9398,13 +9427,20 @@
     const MP = {
       socket: null,
       selfId: null,
+      selfPlate: '',
       joined: false,
       everJoined: false,
-      remotes: new Map(), // id -> { root, wheels, x, z, tx, tz, rotation, tRotation, speed, name }
+      remotes: new Map(), // id -> { root, wheels, x, z, tx, tz, rotation, tRotation, speed, name, vehicleCode, orderStatus }
       lastSendAt: 0,
+      listTimer: 0,
+      rallyReadyAt: 0,
       tiers: ['wave', 'airblade', 'sh']
     };
     world.mpRemotes = MP.remotes;
+    const mpPanel = $('mp-panel');
+    const mpCount = $('mp-count');
+    const mpList = $('mp-list');
+    const mpRallyBtn = $('mp-rally-btn');
 
     function mpOrderStatus() {
       if (state.orderPhase === 'picking') return 'picking';
@@ -9426,8 +9462,11 @@
         tx: d.x || 0, tz: d.z || 0,
         rotation: d.rotation || 0, tRotation: d.rotation || 0,
         speed: 0,
-        name: d.name || 'Tài xế'
+        name: d.name || 'Tài xế',
+        vehicleCode: d.vehicleCode || '',
+        orderStatus: d.orderStatus || 'idle'
       });
+      mpRenderList();
     }
 
     function mpRemoveRemote(id) {
@@ -9435,6 +9474,38 @@
       if (!r) return;
       world.scene.remove(r.root);
       MP.remotes.delete(id);
+      mpRenderList();
+    }
+
+    function mpStatusText(s) {
+      if (s === 'picking') return '🟠 đang lấy món';
+      if (s === 'delivering') return '🔵 đang giao hàng';
+      return '🟢 đang rảnh';
+    }
+
+    // Vẽ lại bảng "Tài xế online": mình + từng tài xế thật kèm biển số, trạng thái, khoảng cách
+    function mpRenderList() {
+      if (!mpList) return;
+      const total = MP.remotes.size + (MP.joined ? 1 : 0);
+      if (mpCount) mpCount.textContent = String(Math.max(total, MP.joined ? 1 : 0));
+      if (!MP.joined) {
+        mpList.innerHTML = '<div class="text-slate-500 font-semibold">📴 Đang offline — vào phòng online để chơi cùng bạn bè.</div>';
+        return;
+      }
+      const rows = [`<div class="font-bold text-emerald-700">🛵 Bạn — ${MP.selfPlate || ''} · ${mpStatusText(mpOrderStatus())}</div>`];
+      const sorted = Array.from(MP.remotes.values()).sort((a, b) => {
+        const da = Math.hypot(world.player.x - a.tx, world.player.z - a.tz);
+        const db = Math.hypot(world.player.x - b.tx, world.player.z - b.tz);
+        return da - db;
+      });
+      sorted.forEach((r) => {
+        const dist = Math.round(Math.hypot(world.player.x - r.tx, world.player.z - r.tz));
+        rows.push(`<div class="font-semibold text-slate-700">🛵 ${r.name} <span class="text-slate-400">${r.vehicleCode}</span> · ${mpStatusText(r.orderStatus)} · cách ${dist} m</div>`);
+      });
+      if (sorted.length === 0) {
+        rows.push('<div class="text-slate-500 font-semibold">Chưa có tài xế nào khác — rủ bạn bè mở link này vào cùng nhé!</div>');
+      }
+      mpList.innerHTML = rows.join('');
     }
 
     function mpClearRemotes() {
@@ -9449,6 +9520,7 @@
           return;
         }
         MP.selfId = res.selfId;
+        MP.selfPlate = res.self.vehicleCode || '';
         MP.joined = true;
         mpClearRemotes();
         if (!MP.everJoined) {
@@ -9459,7 +9531,13 @@
           world.player.rotation = res.self.rotation;
         }
         (res.drivers || []).forEach(mpAddRemote);
+        if (mpPanel) mpPanel.style.display = 'block';
+        mpRenderList();
         appendRadio('Hệ thống', `🌐 Đã vào phòng Quận 1 ONLINE: ${res.drivers.length}/${res.maxDrivers} tài xế đang chạy. Biển số của bạn: ${res.self.vehicleCode}`, true);
+        const otherNames = (res.drivers || []).filter((d) => d.id !== res.selfId).map((d) => d.name);
+        if (otherNames.length > 0) {
+          appendRadio('Hệ thống', `👥 Đang chạy cùng bạn: ${otherNames.join(', ')}. Bấm "📍 Về điểm hẹn" ở bảng Tài xế online để tụ về Chợ Bến Thành gặp nhau!`, true);
+        }
         showGameToast(`🌐 Đang chơi online — ${res.drivers.length} tài xế trong Quận 1!`, 3600);
       });
     }
@@ -9474,6 +9552,7 @@
         MP.joined = false;
         MP.selfId = null;
         mpClearRemotes();
+        mpRenderList();
       });
       socket.on('driver:joined', (d) => {
         mpAddRemote(d);
@@ -9483,6 +9562,7 @@
         const r = MP.remotes.get(d.id);
         if (!r) return;
         r.tx = d.x; r.tz = d.z; r.tRotation = d.rotation; r.speed = d.speed || 0;
+        if (typeof d.orderStatus === 'string') r.orderStatus = d.orderStatus;
       });
       socket.on('driver:left', (d) => {
         const r = MP.remotes.get(d.id);
@@ -9532,6 +9612,25 @@
       if (MP.socket && MP.joined) MP.socket.emit('driver:honk');
     });
 
+    // Nút "Về điểm hẹn": dịch chuyển về Bùng binh Chợ Bến Thành — nơi mọi tài xế xuất phát — để tụ tập gặp nhau
+    if (mpRallyBtn) {
+      mpRallyBtn.addEventListener('click', () => {
+        if (!state.joined) return;
+        const now = performance.now();
+        if (now < MP.rallyReadyAt) {
+          showGameToast(`⏳ Chờ ${Math.ceil((MP.rallyReadyAt - now) / 1000)} giây nữa mới về điểm hẹn tiếp được.`, 2200);
+          return;
+        }
+        MP.rallyReadyAt = now + 15000;
+        world.player.x = -390;
+        world.player.z = 150;
+        world.player.rotation = Math.PI / 2;
+        world.player.speed = 0;
+        showGameToast('📍 Đã về điểm hẹn Chợ Bến Thành — nhìn quanh xem ai đang ở đây nhé!', 3600);
+        appendRadio('Hệ thống', '📍 Bạn vừa về điểm hẹn Chợ Bến Thành.', true);
+      });
+    }
+
     // Sau khi form đăng nhập của game xử lý xong (state.joined = true) thì vào phòng online
     loginForm.addEventListener('submit', () => {
       setTimeout(() => { mpConnect(); mpDoJoin(); }, 0);
@@ -9553,6 +9652,12 @@
           speed: world.player.speed,
           orderStatus: mpOrderStatus()
         });
+      }
+
+      // Cập nhật khoảng cách trong bảng tài xế online ~2 lần/giây
+      if (MP.joined && now - MP.listTimer >= 500) {
+        MP.listTimer = now;
+        mpRenderList();
       }
 
       const k = 1 - Math.exp(-dt * 12);
