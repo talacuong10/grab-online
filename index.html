@@ -9853,10 +9853,10 @@
     function raceBuildVisual() {
       const g = new THREE.Group();
       const beam = new THREE.Mesh(
-        new THREE.CylinderGeometry(9, 13, 120, 20, 1, true),
-        new THREE.MeshBasicMaterial({ color: 0xf59e0b, transparent: true, opacity: 0.34, side: THREE.DoubleSide, depthWrite: false })
+        new THREE.CylinderGeometry(9, 13, 200, 20, 1, true),
+        new THREE.MeshBasicMaterial({ color: 0xf59e0b, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false })
       );
-      beam.position.y = 60;
+      beam.position.y = 100;
       const ring = new THREE.Mesh(
         new THREE.RingGeometry(16, 22, 40),
         new THREE.MeshBasicMaterial({ color: 0xffb020, transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false })
@@ -9884,7 +9884,7 @@
       if (RACE.group) RACE.group.visible = false;
       if (raceBtn) raceBtn.classList.remove('feat-on');
       if (raceChip) raceChip.classList.add('hidden');
-      if (msg) showGameToast(msg, 2200);
+      if (msg) { showGameToast(msg, 2200); appendRadio('Đua phố', msg, true); }
     }
     function raceFinish() {
       const ms = Date.now() - RACE.startedAt;
@@ -9906,6 +9906,7 @@
       if (!state.joined || state.isGameOver) return;
       if (DUEL.open || DUEL.active) { showGameToast('🚦 Đang có kèo ĐUA GỠ PHẠT — xử lý xong kèo này đã!', 2200); return; }
       if (FEAT.racing) { raceStop('Đã hủy cuộc đua.'); return; }
+      if (state.orderPhase === 'offered') resetOrderUI(); // tự bỏ qua đơn đang chào để vào đua ngay
       if (state.orderPhase !== 'idle') { showGameToast('🏁 Đang có đơn — giao/hủy đơn xong rồi đua nhé!', 2400); return; }
       FEAT.racing = true;
       RACE.gate = 0;
@@ -10027,10 +10028,10 @@
     function duelBuildGateVisual() {
       const g = new THREE.Group();
       const beam = new THREE.Mesh(
-        new THREE.CylinderGeometry(9, 13, 120, 20, 1, true),
-        new THREE.MeshBasicMaterial({ color: 0x00e667, transparent: true, opacity: 0.34, side: THREE.DoubleSide, depthWrite: false })
+        new THREE.CylinderGeometry(9, 13, 200, 20, 1, true),
+        new THREE.MeshBasicMaterial({ color: 0x00e667, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false })
       );
-      beam.position.y = 60;
+      beam.position.y = 100;
       const ring = new THREE.Mesh(
         new THREE.RingGeometry(16, 22, 40),
         new THREE.MeshBasicMaterial({ color: 0x00e667, transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false })
