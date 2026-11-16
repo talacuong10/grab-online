@@ -5944,32 +5944,33 @@
           g: new THREE.MeshStandardMaterial({ color: 0x042110, emissive: 0x00ff66, emissiveIntensity: 0.06, roughness: 0.18 })
         });
 
-        const addSignalPole = (x, z, rotY, lensMats) => {
+        const addSignalPole = (x, z, rotY, lensMats, armLen) => {
           const g = new THREE.Group();
           g.position.set(x, 0.7, z);
           g.rotation.y = rotY;
           const pole = new THREE.Mesh(tlPoleGeo, this.mats.poleDark);
           pole.position.y = 6.25;
-          const arm = new THREE.Mesh(tlArmGeo, this.mats.poleDark);
-          arm.position.set(2.6, 12.1, 0);
-          const housing = new THREE.Mesh(tlBoxGeo, this.mats.poleDark);
-          housing.position.set(4.9, 11.4, 0);
+          // Tay đèn VƯƠN DÀI ra gần giữa ngã tư (ngày xưa tay ngắn 5.6 nên đèn nép góc vỉa hè, khó thấy)
+          const arm = new THREE.Mesh(new THREE.BoxGeometry(armLen, 0.42, 0.42), this.mats.poleDark);
+          arm.position.set(armLen / 2, 12.15, 0);
+          const dropRod = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 1.1, 6), this.mats.poleDark);
+          dropRod.position.set(armLen, 11.75, 0);
+          // Đầu đèn TO hơn hẳn (hộp 1.9x5.0, bóng đèn bán kính 0.68 thay vì 0.46)
+          const housing = new THREE.Mesh(new THREE.BoxGeometry(1.9, 5.0, 1.5), this.mats.poleDark);
+          housing.position.set(armLen, 11.2, 0);
 
-          const rL = new THREE.Mesh(tlLensGeo, lensMats.r);
-          rL.position.set(4.9, 12.5, 0.56);
-          const yL = new THREE.Mesh(tlLensGeo, lensMats.y);
-          yL.position.set(4.9, 11.4, 0.56);
-          const gL = new THREE.Mesh(tlLensGeo, lensMats.g);
-          gL.position.set(4.9, 10.3, 0.56);
-
-          const rLb = rL.clone();
-          rLb.position.z = -0.56;
-          const yLb = yL.clone();
-          yLb.position.z = -0.56;
-          const gLb = gL.clone();
-          gLb.position.z = -0.56;
-
-          g.add(pole, arm, housing, rL, yL, gL, rLb, yLb, gLb);
+          const bigLensGeo = new THREE.SphereGeometry(0.68, 14, 14);
+          const mkLens = (mat, y, zSide) => {
+            const l = new THREE.Mesh(bigLensGeo, mat);
+            l.position.set(armLen, y, zSide);
+            return l;
+          };
+          g.add(
+            pole, arm, dropRod, housing,
+            mkLens(lensMats.r, 12.6, 0.78), mkLens(lensMats.r, 12.6, -0.78),
+            mkLens(lensMats.y, 11.2, 0.78), mkLens(lensMats.y, 11.2, -0.78),
+            mkLens(lensMats.g, 9.8, 0.78), mkLens(lensMats.g, 9.8, -0.78)
+          );
           this.scene.add(g);
         };
 
@@ -5977,9 +5978,10 @@
           const nsMats = createSignalLensGroup();
           const ewMats = createSignalLensGroup();
 
-          // Đặt 2 trụ đèn tại góc vỉa hè đối diện: 1 điều khiển hướng Bắc-Nam (NS), 1 điều khiển hướng Đông-Tây (EW)
-          addSignalPole(spec.x - spec.halfEW - 4, spec.z - spec.halfNS - 4, 0, nsMats);
-          addSignalPole(spec.x + spec.halfEW + 4, spec.z + spec.halfNS + 4, Math.PI / 2, ewMats);
+          // Đặt 2 trụ đèn tại góc vỉa hè đối diện, tay vươn ra gần giữa ngã tư cho dễ thấy:
+          // 1 điều khiển hướng Bắc-Nam (NS), 1 điều khiển hướng Đông-Tây (EW)
+          addSignalPole(spec.x - spec.halfEW - 4, spec.z - spec.halfNS - 4, 0, nsMats, spec.halfEW + 2);
+          addSignalPole(spec.x + spec.halfEW + 4, spec.z + spec.halfNS + 4, Math.PI / 2, ewMats, spec.halfNS + 2);
 
           // Vạch dừng xe sơn trắng (Stop line) cho 4 làn vào ngã tư
           const stopEWGeo = new THREE.PlaneGeometry(1.8, Math.max(10, spec.halfNS * 0.86));
@@ -6005,8 +6007,8 @@
           const cdTex = new THREE.CanvasTexture(cdCanvas);
           cdTex.colorSpace = THREE.SRGBColorSpace;
           const cdSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: cdTex, transparent: true }));
-          cdSprite.scale.set(24, 6.2, 1);
-          cdSprite.position.set(spec.x, 16.5, spec.z);
+          cdSprite.scale.set(36, 9.3, 1);
+          cdSprite.position.set(spec.x, 18, spec.z);
           cdSprite.visible = false;
           this.scene.add(cdSprite);
 
@@ -6566,7 +6568,7 @@
         }
 
         // Chỉ hiển thị 1 trạng thái đèn duy nhất theo đúng trục di chuyển của tài xế khi cách ngã tư < 60m
-        if (nearestInter && nearestDist < 60 && !state.isGameOver) {
+        if (nearestInter && nearestDist < 120 && !state.isGameOver) {
           const sinA = Math.abs(Math.sin(this.player.rotation));
           const cosA = Math.abs(Math.cos(this.player.rotation));
           const driverAxis = sinA >= cosA ? 'ew' : 'ns';
@@ -6615,11 +6617,20 @@
             ctx.textBaseline = 'middle';
             ctx.font = 'bold 14px "Be Vietnam Pro", sans-serif';
             ctx.fillStyle = nearestInter.isHotspot ? '#fca5a5' : '#cbd5e1';
-            ctx.fillText(nearestInter.isHotspot ? `🚓 CHỐT CSGT • ${axisLabel}` : `Hướng ${axisLabel}`, 124, 28);
+            ctx.fillText(nearestInter.isHotspot ? `🚓 CHỐT CSGT • ${axisLabel}` : `Hướng ${axisLabel}`, 124, 27);
 
-            ctx.font = '900 25px "Be Vietnam Pro", monospace';
+            ctx.font = '900 25px "Be Vietnam Pro", sans-serif';
             ctx.fillStyle = colorHexMap[activeSig.state];
-            ctx.fillText(fullStatus, 124, 58);
+            ctx.fillText(actionText, 124, 60);
+
+            // Số đếm ngược GIÂY khổ thật to bên phải bảng cho dễ đọc từ xa
+            ctx.textAlign = 'center';
+            ctx.font = '900 54px "Be Vietnam Pro", monospace';
+            ctx.fillStyle = colorHexMap[activeSig.state];
+            ctx.fillText(secStr, 312, 46);
+            ctx.font = 'bold 13px "Be Vietnam Pro", sans-serif';
+            ctx.fillStyle = '#e2e8f0';
+            ctx.fillText('giây', 312, 78);
             nearestInter.cdTex.needsUpdate = true;
           }
 
@@ -9979,7 +9990,7 @@
       raceSetNav();
       if (raceBtn) raceBtn.classList.add('feat-on');
       if (raceChip) { raceChip.classList.remove('hidden'); raceChip.textContent = '🏁 ĐUA PHỐ: chạy tới cổng xuất phát — Chợ Bến Thành để bắt đầu bấm giờ!'; }
-      showGameToast('🏁 ĐUA PHỐ QUẬN 1! Qua cổng Chợ Bến Thành là bắt đầu tính giờ — 8 cổng, về đích nhận thưởng!', 3600);
+      showGameToast('🏁 ĐUA PHỐ QUẬN 1! Qua cổng Chợ Bến Thành là bắt đầu tính giờ — 8 cổng, về đích nhận thưởng! Đèn đỏ được MIỄN PHẠT khi đang đua!', 3600);
       appendRadio('Đua phố', '🏁 Một tài xế vừa khởi động ĐUA PHỐ QUẬN 1!', true);
     }
     if (raceBtn) raceBtn.addEventListener('click', featToggleRace);
@@ -10053,7 +10064,9 @@
 
     // Điểm vào từ checkPlayerTrafficViolations khi vượt đèn đỏ
     function featRedLightChallenge(inter) {
-      if (DUEL.open || DUEL.active || FEAT.racing || state.isGameOver) {
+      // Đang ĐUA PHỐ: miễn toàn bộ vụ đèn đỏ — không popup rủ đua, không phạt nguội
+      if (FEAT.racing) return;
+      if (DUEL.open || DUEL.active || state.isGameOver) {
         world.triggerTrafficEnforcement(`Vượt đèn đỏ tại ${inter.name}`, inter.isHotspot);
         return;
       }
