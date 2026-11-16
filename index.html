@@ -206,7 +206,7 @@
       <form id="driver-login-form" class="p-6 space-y-4" autocomplete="off">
         <div>
           <label for="driver-name-input" class="block text-sm font-bold text-slate-700 mb-1.5">
-            Tên tài xế Grab <span class="text-xs font-normal text-slate-400">(2–18 ký tự)</span>
+            Tên nhân vật <span class="text-xs font-normal text-slate-400">(tên tài xế hiển thị trong game, 2–18 ký tự)</span>
           </label>
           <input id="driver-name-input" type="text" maxlength="18" value="Cường Xe Ôm"
             placeholder="Ví dụ: Cường Xe Ôm..."
@@ -215,11 +215,20 @@
         </div>
 
         <div>
+          <label for="driver-user-input" class="block text-sm font-bold text-slate-700 mb-1.5">
+            Tên đăng nhập <span class="text-xs font-normal text-slate-400">(để trống = chơi khách, không lưu tiến trình)</span>
+          </label>
+          <input id="driver-user-input" type="text" maxlength="20"
+            placeholder="Ví dụ: cuongxo — dùng để đăng nhập lại lần sau..."
+            class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold focus:border-[#00b14f] focus:ring-2 focus:ring-emerald-200 outline-none transition" />
+        </div>
+
+        <div>
           <label for="driver-pass-input" class="block text-sm font-bold text-slate-700 mb-1.5">
-            Mật khẩu tài khoản <span class="text-xs font-normal text-slate-400">(để trống = chơi khách, không lưu tiến trình)</span>
+            Mật khẩu <span class="text-xs font-normal text-slate-400">(từ 4 ký tự — chỉ cần khi có Tên đăng nhập)</span>
           </label>
           <input id="driver-pass-input" type="password" maxlength="32"
-            placeholder="Đặt mật khẩu để tạo tài khoản & lưu tiền/xe/cấp..."
+            placeholder="Mật khẩu của tài khoản đăng nhập..."
             class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold focus:border-[#00b14f] focus:ring-2 focus:ring-emerald-200 outline-none transition" />
           <p id="account-hint" class="text-[11px] text-slate-500 mt-1.5 leading-relaxed"></p>
         </div>
@@ -566,9 +575,12 @@
       </div>
     </div>
 
+    <!-- Cột trái dùng chung: thẻ đơn / bảng online / bộ đàm xếp chồng theo cột, không đè nhau -->
+    <div id="left-stack"
+      class="fixed left-3 bottom-3 z-30 flex flex-col gap-2.5 w-[328px] max-w-[calc(100vw-24px)] max-h-[calc(100dvh-165px)] overflow-y-auto custom-scroll pointer-events-none pr-0.5">
     <!-- THẺ APP GRAB DRIVER (Góc trái) -->
     <section id="order-card"
-      class="pointer-events-auto fixed left-3 bottom-3 md:bottom-[175px] w-[328px] max-w-[calc(100vw-24px)] rounded-3xl bg-white shadow-2xl border border-emerald-200 overflow-hidden">
+      class="pointer-events-auto w-full shrink-0 rounded-3xl bg-white shadow-2xl border border-emerald-200 overflow-hidden">
       <div
         class="bg-gradient-to-r from-[#00b14f] to-[#009442] px-4 py-2.5 text-white flex items-center justify-between">
         <div class="flex items-center gap-2">
@@ -641,7 +653,7 @@
     </section>
 
     <!-- Tài xế online trong phòng (Multiplayer) -->
-    <section id="mp-panel" class="pointer-events-auto rounded-2xl bg-white shadow-xl border border-emerald-200 overflow-hidden" style="display:none">
+    <section id="mp-panel" class="pointer-events-auto w-full shrink-0 rounded-2xl bg-white shadow-xl border border-emerald-200 overflow-hidden" style="display:none">
       <div class="bg-emerald-700 text-white px-3.5 py-2 flex items-center justify-between gap-2">
         <span class="text-xs font-extrabold">👥 Tài xế online: <span id="mp-count">1</span>/20</span>
         <button id="mp-rally-btn" type="button"
@@ -655,7 +667,7 @@
 
     <!-- Bộ đàm tài xế (Góc trái dưới) -->
     <section id="radio-panel"
-      class="pointer-events-auto fixed left-3 bottom-3 w-[328px] rounded-2xl bg-white shadow-xl border border-emerald-200 overflow-hidden">
+      class="pointer-events-auto w-full shrink-0 rounded-2xl bg-white shadow-xl border border-emerald-200 overflow-hidden">
       <div id="radio-toggle-btn"
         class="bg-slate-900 text-white px-3.5 py-2 flex items-center justify-between cursor-pointer">
         <span class="text-xs font-extrabold text-[#00e667]">📻 Bộ đàm Tài xế Quận 1</span>
@@ -675,6 +687,7 @@
         </form>
       </div>
     </section>
+    </div> <!-- /left-stack -->
 
     <!-- Chips tính năng: đua phố / leo lề / unlock -->
     <div id="feat-chips" class="fixed bottom-24 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-1.5 pointer-events-none">
@@ -2532,6 +2545,7 @@
           const store = accLoadStore();
           const key = ACC.current.toLowerCase();
           if (store[key]) {
+            store[key].charName = state.driverName;
             const rank = getCareerRank(state.completedOrders);
             store[key].data = {
               driverName: state.driverName,
@@ -6394,15 +6408,20 @@
           this.currentGpsPath = [];
           return;
         }
-        const hex = state.orderPhase === 'picking' ? 0xf97316 : 0x00e667;
+        const hex = this.navOverrideTarget ? this.navOverrideTarget.hex : (state.orderPhase === 'picking' ? 0xf97316 : 0x00e667);
         this.beaconBeamMat.color.setHex(hex);
         this.beaconBeamMat.emissive.setHex(hex);
         this.beaconRingMat.color.setHex(hex);
         this.beaconRingMat.emissive.setHex(hex);
         this.holoOuterMat.color.setHex(0x00ff66);
         this.holoOuterMat.emissive.setHex(0x00ff66);
-        this.navArrowMat.color.setHex(0x00ff66);
-        this.navArrowMat.emissive.setHex(0x00ff66);
+        this.navArrowMat.color.setHex(this.navOverrideTarget ? hex : 0x00ff66);
+        this.navArrowMat.emissive.setHex(this.navOverrideTarget ? hex : 0x00ff66);
+        const gpsHex = this.navOverrideTarget ? this.navOverrideTarget.hex : 0x00ff66;
+        this.gpsRibbonMat.color.setHex(gpsHex);
+        this.gpsRibbonMat.emissive.setHex(gpsHex);
+        this.gpsChevronMat.color.setHex(gpsHex);
+        this.gpsChevronMat.emissive.setHex(gpsHex);
 
         this.beaconGroup.position.set(target.x, 0, target.z);
         this.beaconGroup.visible = true;
@@ -6822,6 +6841,9 @@
       }
 
       getActiveTarget() {
+        // Ưu tiên tuyệt đối khi ĐUA: đích là cổng đua phố / cổng về đích đua gỡ phạt.
+        // GPS + beacon + mũi tên + minimap chỉ theo đích đua, không lẫn với điểm giao đồ ăn.
+        if (this.navOverrideTarget) return this.navOverrideTarget;
         if (state.activeOrder) {
           return state.orderPhase === 'picking' ? state.activeOrder.pickup : state.activeOrder.dropoff;
         }
@@ -8044,7 +8066,7 @@
           }
           ctx.stroke();
 
-          ctx.strokeStyle = '#00ff66';
+          ctx.strokeStyle = this.navOverrideTarget ? this.navOverrideTarget.css : '#00ff66';
           ctx.lineWidth = 2.4;
           ctx.beginPath();
           ctx.moveTo(mx(pts[0].x), mz(pts[0].z));
@@ -8053,7 +8075,7 @@
           }
           ctx.stroke();
 
-          ctx.fillStyle = state.orderPhase === 'picking' ? '#f97316' : '#00b14f';
+          ctx.fillStyle = this.navOverrideTarget ? this.navOverrideTarget.css : (state.orderPhase === 'picking' ? '#f97316' : '#00b14f');
           ctx.beginPath();
           ctx.arc(tx, tz, 4.8, 0, Math.PI * 2);
           ctx.fill();
@@ -8393,7 +8415,9 @@
 
           const target = this.getActiveTarget();
           if (target) {
-            const dist = Math.hypot(this.player.x - target.x, this.player.z - target.z);
+            // Khoảng cách hoàn thành đơn luôn tính theo đích ĐƠN thật (khi đang đua, target là cổng đua)
+            const orderTgt = state.activeOrder ? (state.orderPhase === 'picking' ? state.activeOrder.pickup : state.activeOrder.dropoff) : null;
+            const dist = Math.hypot(this.player.x - (orderTgt || target).x, this.player.z - (orderTgt || target).z);
             if (state.activeOrder) {
               orderDistance.textContent = `📏 Cách đích: ${Math.round(dist)} m`;
             }
@@ -9919,12 +9943,25 @@
       RACE.group.position.set(gt.x, 0, gt.z);
       RACE.group.visible = true;
     }
+    // Chỉ đường RIÊNG cho đua phố: GPS + beacon + mũi tên + minimap bám theo cổng đua (màu hổ phách)
+    function raceSetNav() {
+      const gt = RACE_GATES[RACE.gate];
+      world.navOverrideTarget = { name: gt.name, x: gt.x, z: gt.z, hex: 0xf59e0b, css: '#f59e0b' };
+      if (world.updateOrderBeacons) world.updateOrderBeacons();
+    }
+    function raceClearNav() {
+      if (world.navOverrideTarget && world.navOverrideTarget.hex === 0xf59e0b) {
+        world.navOverrideTarget = null;
+        if (world.updateOrderBeacons) world.updateOrderBeacons();
+      }
+    }
     function fmtRaceTime(ms) {
       const s = ms / 1000;
       return `${Math.floor(s / 60)}:${(s % 60).toFixed(1).padStart(4, '0')}`;
     }
     function raceStop(msg) {
       FEAT.racing = false;
+      raceClearNav();
       if (RACE.group) RACE.group.visible = false;
       if (raceBtn) raceBtn.classList.remove('feat-on');
       if (raceChip) raceChip.classList.add('hidden');
@@ -9956,6 +9993,7 @@
       RACE.gate = 0;
       RACE.startedAt = 0;
       racePlaceGate();
+      raceSetNav();
       if (raceBtn) raceBtn.classList.add('feat-on');
       if (raceChip) { raceChip.classList.remove('hidden'); raceChip.textContent = '🏁 ĐUA PHỐ: chạy tới cổng xuất phát — Chợ Bến Thành để bắt đầu bấm giờ!'; }
       showGameToast('🏁 ĐUA PHỐ QUẬN 1! Qua cổng Chợ Bến Thành là bắt đầu tính giờ — 8 cổng, về đích nhận thưởng!', 3600);
@@ -9980,6 +10018,7 @@
         if (RACE.gate >= RACE_GATES.length - 1) { raceFinish(); return; }
         RACE.gate += 1;
         racePlaceGate();
+        raceSetNav();
         audio.playSuccess(false);
       }
     }, 120);
@@ -10090,6 +10129,10 @@
 
     function duelCleanup() {
       DUEL.active = false;
+      if (world.navOverrideTarget && world.navOverrideTarget.hex === 0x22c55e) {
+        world.navOverrideTarget = null;
+        if (world.updateOrderBeacons) world.updateOrderBeacons();
+      }
       if (DUEL.rival) {
         world.scene.remove(DUEL.rival.root);
         DUEL.rival = null;
@@ -10151,6 +10194,9 @@
       DUEL.group.visible = true;
       DUEL.active = true;
       DUEL.deadline = Date.now() + 90000;
+      // Chỉ đường riêng cho kèo gỡ phạt: GPS + beacon chỉ tới cổng về đích (màu xanh lá)
+      world.navOverrideTarget = { name: finish.name, x: finish.x, z: finish.z, hex: 0x22c55e, css: '#22c55e' };
+      if (world.updateOrderBeacons) world.updateOrderBeacons();
       state.violationCooldown = 20;
       if (raceChip) raceChip.classList.remove('hidden');
       showGameToast(`🚓 CSGT ÁO VÀNG ĐANG RƯỢT SAU LƯNG! Về cổng đích "${finish.name}" trước anh ấy — thoát là khỏi phạt!`, 3400);
@@ -10237,13 +10283,19 @@
     }
     requestAnimationFrame(duelTick);
 
-    // ==================== 13. TÀI KHOẢN NGƯỜI CHƠI: tạo tài khoản + lưu tiến trình trên máy ====================
-    // Tài khoản = Tên tài xế + Mật khẩu, lưu trong localStorage của chính máy người chơi.
-    // Đăng nhập lại đúng tên + mật khẩu là khôi phục đủ tiền / xe / cấp / nhiệm vụ.
-    // Để trống mật khẩu = chơi khách (không lưu, mỗi lần vào làm lại từ đầu như trước).
+    // ==================== 13. TÀI KHOẢN NGƯỜI CHƠI: tên đăng nhập riêng, tên nhân vật riêng ====================
+    // Tài khoản = Tên đăng nhập (username) + Mật khẩu, lưu trong localStorage của chính máy người chơi.
+    // Tên NHÂN VẬT (tên tài xế hiển thị trong game) tách riêng khỏi tên đăng nhập, đổi lúc nào cũng được.
+    // Đăng nhập lại đúng username + mật khẩu là khôi phục đủ tiền / xe / cấp / nhiệm vụ.
+    // Để trống Tên đăng nhập = chơi khách (không lưu, mỗi lần vào làm lại từ đầu).
+    // Bản v2 RESET toàn bộ tài khoản v1 (vốn keyed theo tên tài xế) theo yêu cầu làm lại hệ tài khoản.
     var ACC = { current: null };
-    const ACCOUNTS_KEY = 'grab_q1_accounts_v1';
-    const SESSION_KEY = 'grab_q1_session_v1';
+    const ACCOUNTS_KEY = 'grab_q1_accounts_v2';
+    const SESSION_KEY = 'grab_q1_session_v2';
+    try {
+      localStorage.removeItem('grab_q1_accounts_v1');
+      localStorage.removeItem('grab_q1_session_v1');
+    } catch (_) { }
 
     function accLoadStore() {
       try { return JSON.parse(localStorage.getItem(ACCOUNTS_KEY)) || {}; } catch (_) { return {}; }
@@ -10254,9 +10306,9 @@
     function accLoadSession() {
       try { return JSON.parse(localStorage.getItem(SESSION_KEY)) || null; } catch (_) { return null; }
     }
-    function accSaveSession(name) {
+    function accSaveSession(sess) {
       try {
-        if (name) localStorage.setItem(SESSION_KEY, JSON.stringify({ name }));
+        if (sess && sess.user) localStorage.setItem(SESSION_KEY, JSON.stringify(sess));
         else localStorage.removeItem(SESSION_KEY);
       } catch (_) { }
     }
@@ -10313,43 +10365,54 @@
       }
     }
 
-    // Cổng tài khoản ở màn hình vào ca: trả về false nếu phải chặn (sai mật khẩu / mật khẩu quá ngắn)
-    function accHandleLogin(name) {
+    // Cổng tài khoản ở màn hình vào ca: charName = tên NHÂN VẬT (hiển thị trong game).
+    // Tên ĐĂNG NHẬP + mật khẩu đọc riêng từ form. Trả về false nếu phải chặn đăng nhập.
+    function accHandleLogin(charName) {
+      const userEl = $('driver-user-input');
       const passEl = $('driver-pass-input');
+      const user = userEl ? userEl.value.trim() : '';
       const pass = passEl ? passEl.value : '';
+      if (!user) {
+        // Chơi khách: chỉ có tên nhân vật, không lưu tiến trình
+        ACC.current = null;
+        accRefreshPanel();
+        return true;
+      }
+      if (!/^[a-zA-Z0-9._-]{3,20}$/.test(user)) {
+        loginErrorMsg.textContent = 'Tên đăng nhập cần 3–20 ký tự, chỉ gồm chữ, số, dấu . _ - (không dấu, không khoảng trắng).';
+        loginErrorMsg.classList.remove('hidden');
+        return false;
+      }
       const store = accLoadStore();
-      const key = name.toLowerCase();
+      const key = user.toLowerCase();
       const existing = store[key];
       const session = accLoadSession();
       if (existing) {
-        const viaSession = Boolean(session && session.name && session.name.toLowerCase() === key && !pass);
-        if (!viaSession && accHash(name, pass) !== existing.hash) {
-          loginErrorMsg.textContent = '🔐 Tên này đã có tài khoản — nhập đúng mật khẩu để lấy lại tiến trình (hoặc đổi tên khác / để trống mật khẩu nếu chính là bạn và máy này đã nhớ đăng nhập).';
+        const viaSession = Boolean(session && session.user && session.user.toLowerCase() === key && !pass);
+        if (!viaSession && accHash(user, pass) !== existing.hash) {
+          loginErrorMsg.textContent = '🔐 Sai mật khẩu của tài khoản đăng nhập này — nhập đúng mật khẩu để lấy lại tiến trình (hoặc để trống ô Tên đăng nhập để chơi khách).';
           loginErrorMsg.classList.remove('hidden');
           return false;
         }
-        ACC.current = existing.name;
-        accSaveSession(existing.name);
-        applyAccountData(existing.data);
-        setTimeout(() => showGameToast(`👋 Chào mừng trở lại, ${existing.name}! Đã khôi phục tiến trình: ${formatVND(state.balance)}, xe ${getCurrentVehicleSpec().shortLabel}, cấp ${state.level}.`, 3600), 700);
-        accRefreshPanel();
-        return true;
-      }
-      if (pass) {
-        if (pass.length < 4) {
-          loginErrorMsg.textContent = 'Mật khẩu cần tối thiểu 4 ký tự (hoặc để trống để chơi khách không lưu).';
-          loginErrorMsg.classList.remove('hidden');
-          return false;
-        }
-        store[key] = { name, hash: accHash(name, pass), data: null, createdAt: Date.now() };
+        ACC.current = existing.user;
+        existing.charName = charName;
         accSaveStore(store);
-        ACC.current = name;
-        accSaveSession(name);
-        setTimeout(() => showGameToast('🆕 Đã tạo tài khoản mới! Từ nay tiền / xe / cấp của bạn tự lưu theo tài khoản này.', 3600), 700);
+        accSaveSession({ user: existing.user, charName });
+        applyAccountData(existing.data);
+        setTimeout(() => showGameToast(`👋 Chào mừng trở lại, ${charName}! Đã khôi phục tiến trình: ${formatVND(state.balance)}, xe ${getCurrentVehicleSpec().shortLabel}, cấp ${state.level}.`, 3600), 700);
         accRefreshPanel();
         return true;
       }
-      ACC.current = null;
+      if (pass.length < 4) {
+        loginErrorMsg.textContent = 'Tên đăng nhập này chưa có tài khoản — đặt mật khẩu từ 4 ký tự để tạo tài khoản mới (hoặc để trống ô Tên đăng nhập để chơi khách).';
+        loginErrorMsg.classList.remove('hidden');
+        return false;
+      }
+      store[key] = { user, charName, hash: accHash(user, pass), data: null, createdAt: Date.now() };
+      accSaveStore(store);
+      ACC.current = user;
+      accSaveSession({ user, charName });
+      setTimeout(() => showGameToast(`🆕 Đã tạo tài khoản "${user}" cho nhân vật ${charName}! Từ nay tiến trình tự lưu theo tài khoản đăng nhập này.`, 3600), 700);
       accRefreshPanel();
       return true;
     }
@@ -10358,7 +10421,7 @@
     function accRefreshPanel() {
       const label = $('acc-label');
       const btn = $('acc-logout-btn');
-      if (label) label.textContent = ACC.current ? `👤 Tài khoản: ${ACC.current} (đang lưu tiến trình)` : '👤 Chơi khách — tiến trình KHÔNG lưu';
+      if (label) label.textContent = ACC.current ? `👤 TK: ${ACC.current} • NV: ${state.driverName || '—'} (đang lưu)` : '👤 Chơi khách — tiến trình KHÔNG lưu';
       if (btn) btn.style.display = ACC.current ? '' : 'none';
     }
     (function accBuildPanelFooter() {
@@ -10375,24 +10438,28 @@
       });
     })();
 
-    // Gợi ý tài khoản dưới ô mật khẩu + trạng thái gõ phím cho ô mật khẩu
+    // Gợi ý tài khoản dưới ô mật khẩu + tự điền tên đăng nhập đã nhớ + trạng thái gõ phím
     (function accInitLoginUI() {
-      const passEl = $('driver-pass-input');
-      if (passEl) {
-        passEl.addEventListener('focus', () => (state.isTyping = true));
-        passEl.addEventListener('blur', () => (state.isTyping = false));
-      }
+      ['driver-pass-input', 'driver-user-input'].forEach((id) => {
+        const el = $(id);
+        if (el) {
+          el.addEventListener('focus', () => (state.isTyping = true));
+          el.addEventListener('blur', () => (state.isTyping = false));
+        }
+      });
+      const store = accLoadStore();
+      const session = accLoadSession();
+      const userEl = $('driver-user-input');
+      if (userEl && session && session.user) userEl.value = session.user;
       const hint = $('account-hint');
       if (!hint) return;
-      const store = accLoadStore();
-      const names = Object.values(store).map((a) => a.name);
-      const session = accLoadSession();
-      if (session && session.name && store[session.name.toLowerCase()]) {
-        hint.textContent = `💾 Máy này đang nhớ tài khoản "${session.name}" — nhập đúng tên đó (để trống mật khẩu cũng được) là vào lại đúng tiến trình đã lưu.`;
-      } else if (names.length) {
-        hint.textContent = `💾 Trên máy này đã có tài khoản: ${names.join(', ')}. Nhập đúng tên + mật khẩu để lấy lại tiến trình.`;
+      const users = Object.values(store).map((a) => a.user);
+      if (session && session.user && store[session.user.toLowerCase()]) {
+        hint.textContent = `💾 Máy này đang nhớ tài khoản đăng nhập "${session.user}" (nhân vật ${session.charName || ''}) — cứ để nguyên tên đăng nhập, để trống mật khẩu cũng vào lại được đúng tiến trình.`;
+      } else if (users.length) {
+        hint.textContent = `💾 Trên máy này đã có tài khoản đăng nhập: ${users.join(', ')}. Nhập đúng tên đăng nhập + mật khẩu để lấy lại tiến trình; tên nhân vật đặt gì cũng được.`;
       } else {
-        hint.textContent = '💾 Chưa có tài khoản nào trên máy này — đặt mật khẩu bất kỳ (từ 4 ký tự) là hệ thống tự tạo tài khoản và lưu tiến trình cho bạn.';
+        hint.textContent = '💾 Chưa có tài khoản nào trên máy này — điền Tên đăng nhập + Mật khẩu (từ 4 ký tự) là hệ thống tự tạo tài khoản và lưu tiến trình cho bạn. Tên nhân vật chỉ để hiển thị trong game.';
       }
     })();
   </script>
