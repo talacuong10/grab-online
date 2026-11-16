@@ -2342,12 +2342,16 @@
 
     // ==================== 4. TRẠNG THÁI & LƯU TIẾN TRÌNH ====================
     const STORAGE_KEY = 'grab_q1_singlefile_v1';
+    const NAME_KEY = 'grab_q1_driver_name';
+    // Chế độ PHÒNG CHƠI CHUNG: mỗi lần vào là 1 tài khoản MỚI — xóa sạch dữ liệu lưu cũ
+    // (tiền, xe, cấp bậc...) trên máy người chơi và luôn bắt đầu lại từ đầu cho công bằng.
+    // Chỉ nhớ riêng TÊN tài xế để lần sau khỏi gõ lại (tránh cả phòng trùng tên mặc định).
     function loadSaveData() {
-      try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (raw) return JSON.parse(raw);
-      } catch (_) { }
+      try { localStorage.removeItem(STORAGE_KEY); } catch (_) { }
       return null;
+    }
+    function loadSavedName() {
+      try { return localStorage.getItem(NAME_KEY) || ''; } catch (_) { return ''; }
     }
 
     const savedData = loadSaveData();
@@ -2359,7 +2363,7 @@
       : ['grab_classic'];
     const state = {
       joined: false,
-      driverName: (savedData && savedData.driverName) || 'Cường Xe Ôm',
+      driverName: loadSavedName() || 'Cường Xe Ôm',
       balance: (savedData && Number.isFinite(savedData.balance)) ? savedData.balance : 350000,
       completedOrders: (savedData && Number.isFinite(savedData.completedOrders)) ? savedData.completedOrders : 0,
       ownedVehicles: initialOwned,
@@ -2471,27 +2475,10 @@
     initQuestSystem();
 
     function persistSaveData() {
-      try {
-        const rank = getCareerRank(state.completedOrders);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({
-          driverName: state.driverName,
-          balance: state.balance,
-          completedOrders: state.completedOrders,
-          careerRankLevel: rank.level,
-          ownedVehicles: state.ownedVehicles,
-          currentVehicleId: state.currentVehicleId,
-          ownedStyles: state.ownedStyles,
-          currentStyleId: state.currentStyleId,
-          durability: state.durability,
-          escapedCount: state.escapedCount,
-          finesCount: state.finesCount,
-          crashCount: state.crashCount,
-          xp: state.xp,
-          level: state.level,
-          energy: Math.round(state.energy),
-          quests: state.quests
-        }));
-      } catch (_) { }
+      // Không lưu tiến trình: mỗi lần vào là 1 tài khoản mới,
+      // tiền bạc / xe / cấp bậc đều làm lại từ đầu (xem loadSaveData).
+      // Chỉ lưu TÊN tài xế để lần sau tự điền sẵn ở màn hình vào ca.
+      try { if (state.driverName) localStorage.setItem(NAME_KEY, state.driverName); } catch (_) { }
     }
 
     function getCurrentVehicleSpec() {
@@ -7336,8 +7323,8 @@
         const ltex = new THREE.CanvasTexture(lc);
         ltex.colorSpace = THREE.SRGBColorSpace;
         const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: ltex, transparent: true }));
-        label.scale.set(isSelf ? 24 : 20, isSelf ? 6.0 : 4.4, 1);
-        label.position.set(0, 14.3, 0);
+        label.scale.set(isSelf ? 15 : 12, isSelf ? 3.8 : 2.7, 1);
+        label.position.set(0, 12.6, 0);
         root.add(label);
 
         return {
@@ -9512,6 +9499,16 @@
       Array.from(MP.remotes.keys()).forEach(mpRemoveRemote);
     }
 
+    // Bản ONLINE: tắt toàn bộ tài xế ảo (bot) — phòng online chỉ có tài xế THẬT chơi với nhau.
+    let mpBotsDisabled = false;
+    function mpDisableBots() {
+      if (mpBotsDisabled || !world.aiDrivers) return;
+      mpBotsDisabled = true;
+      world.aiDrivers.forEach((ai) => { if (ai.mesh) world.scene.remove(ai.mesh); });
+      world.aiDrivers.length = 0;
+      appendRadio('Hệ thống', '🤖 Đã tắt 15 tài xế ảo — phòng online chỉ có tài xế thật.', true);
+    }
+
     function mpDoJoin() {
       if (!MP.socket || !MP.socket.connected || !state.joined || MP.joined) return;
       MP.socket.emit('driver:join', { name: state.driverName }, (res) => {
@@ -9531,6 +9528,7 @@
           world.player.rotation = res.self.rotation;
         }
         (res.drivers || []).forEach(mpAddRemote);
+        mpDisableBots();
         if (mpPanel) mpPanel.style.display = 'block';
         mpRenderList();
         appendRadio('Hệ thống', `🌐 Đã vào phòng Quận 1 ONLINE: ${res.drivers.length}/${res.maxDrivers} tài xế đang chạy. Biển số của bạn: ${res.self.vehicleCode}`, true);
