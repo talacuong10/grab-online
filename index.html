@@ -153,27 +153,10 @@
         transform: scale(0.76);
         transform-origin: top right;
       }
-
-      #radio-panel {
-        display: none;
-      }
     }
 
-    /* Panel tai xe online (multiplayer) — desktop: tren bo dam goc trai duoi; mobile: duoi minimap */
-    #mp-panel {
-      position: fixed;
-      left: 12px;
-      bottom: 182px;
-      width: 328px;
-      z-index: 25;
-    }
-    @media (max-width: 768px) {
-      #mp-panel {
-        width: 252px;
-        bottom: auto;
-        top: 148px;
-      }
-    }
+    /* Panel tai xe online (multiplayer) — nam trong cot trai #left-stack cung the don va bo dam,
+       xep theo thu tu nen khong con ghim vi tri co dinh de len the don nhu truoc */
     #unlock-btn.feat-on { background: #ea580c !important; color: #fff !important; box-shadow: 0 0 18px rgba(234,88,12,.75); }
     #race-btn.feat-on { background: #b45309 !important; color: #fff !important; box-shadow: 0 0 18px rgba(245,158,11,.7); }
   </style>
