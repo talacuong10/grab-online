@@ -686,7 +686,7 @@
     <!-- Popup ĐUA GỠ PHẠT khi vượt đèn đỏ -->
     <div id="duel-popup" class="hidden fixed top-[86px] left-1/2 -translate-x-1/2 z-40 pointer-events-auto w-[min(92vw,430px)] rounded-3xl bg-slate-900/95 text-white shadow-2xl border-2 border-red-400/70 p-4">
       <div class="text-sm font-extrabold text-red-300">🚦 VƯỢT ĐÈN ĐỎ — CAMERA ĐÃ GHI HÌNH!</div>
-      <p class="text-xs mt-1.5 text-slate-200 leading-relaxed">CSGT cho bạn 1 cơ hội: <b>ĐUA VỚI GIAO THÔNG</b> tới cổng đích <b id="duel-finish-name">—</b> (cách ~<span id="duel-dist">700</span>m). Thắng = <b class="text-emerald-300">khỏi phạt + thưởng 10.000đ</b>. Thua / bỏ qua = <b class="text-red-300">phạt 50.000đ</b>.</p>
+      <p class="text-xs mt-1.5 text-slate-200 leading-relaxed">Anh <b>CSGT áo vàng</b> sẽ rượt đuổi bạn tới cổng đích <b id="duel-finish-name">—</b> (cách ~<span id="duel-dist">700</span>m). Về đích trước anh ấy = <b class="text-emerald-300">khỏi phạt + thưởng 10.000đ</b>. Bị bắt kịp / bỏ qua = <b class="text-red-300">phạt 50.000đ</b>.</p>
       <div class="flex gap-2 mt-3">
         <button id="duel-accept-btn" type="button" class="flex-1 rounded-xl bg-[#00b14f] hover:bg-[#009843] active:scale-[0.98] font-extrabold py-2.5 text-sm cursor-pointer">🏁 ĐUA LUÔN (Enter)</button>
         <button id="duel-decline-btn" type="button" class="flex-1 rounded-xl bg-slate-700 hover:bg-slate-600 active:scale-[0.98] font-extrabold py-2.5 text-sm cursor-pointer">💸 Chịu phạt</button>
@@ -10098,6 +10098,31 @@
       if (raceChip && !FEAT.racing) raceChip.classList.add('hidden');
     }
 
+    // Nhuộm đối thủ thành CSGT ÁO VÀNG: đồng phục + mũ vàng, sọc đỏ, xe trắng xanh công an
+    function duelPaintPolice(root) {
+      const st = resolveDriverStyle(state.currentStyleId);
+      const spec = resolveVehicleSpec('z1000');
+      const map = new Map([
+        [st.jacketHex, 0xf2c230],
+        [st.darkHex, 0xd9a821],
+        [st.helmetHex, 0xf2c230],
+        [st.jeansHex, 0xd9a821],
+        [st.stripeHex, 0xdc2626],
+        [st.shoeHex, 0x111827],
+        [spec.colorHex, 0xf8fafc],
+        [spec.accentHex, 0x1d4ed8],
+      ]);
+      root.traverse((o) => {
+        if (o.isMesh && o.material && o.material.color && !o.material.transparent) {
+          const c = o.material.color.getHex();
+          if (map.has(c)) {
+            o.material.color.setHex(map.get(c));
+            if (o.material.emissive && c === st.stripeHex) o.material.emissive.setHex(0xdc2626);
+          }
+        }
+      });
+    }
+
     function duelAccept() {
       if (!DUEL.open) return;
       duelHidePopup();
@@ -10106,7 +10131,8 @@
       const pts = (path && path.centerPoints && path.centerPoints.length > 1)
         ? path.centerPoints
         : [{ x: world.player.x, z: world.player.z }, { x: finish.x, z: finish.z }];
-      const built = world.createVehicleMesh('z1000', '🏁 Đối thủ', false);
+      const built = world.createVehicleMesh('z1000', '🚓 CSGT', false);
+      duelPaintPolice(built.root);
       world.scene.add(built.root);
       const veh = getCurrentVehicleSpec();
       DUEL.rival = {
@@ -10127,8 +10153,8 @@
       DUEL.deadline = Date.now() + 90000;
       state.violationCooldown = 20;
       if (raceChip) raceChip.classList.remove('hidden');
-      showGameToast(`🏁 ĐUA GỠ PHẠT! Về cổng đích "${finish.name}" trước đối thủ — thắng là khỏi phạt!`, 3400);
-      appendRadio('Đua gỡ phạt', '🏁 Kèo đua gỡ phạt bắt đầu! Cả phố nín thở theo dõi!', true);
+      showGameToast(`🚓 CSGT ÁO VÀNG ĐANG RƯỢT SAU LƯNG! Về cổng đích "${finish.name}" trước anh ấy — thoát là khỏi phạt!`, 3400);
+      appendRadio('Đua gỡ phạt', '🚓 CSGT áo vàng đang rượt đuổi một tài xế vượt đèn đỏ! Cả phố nín thở theo dõi!', true);
       audio.playHorn();
     }
 
@@ -10177,7 +10203,7 @@
 
       const r = DUEL.rival;
       const target = r.pts[r.seg];
-      if (!target || r.seg >= r.pts.length) { duelLose('Đối thủ đã về đích trước!'); return; }
+      if (!target || r.seg >= r.pts.length) { duelLose('CSGT đã về đích trước — bắt tại trận!'); return; }
       const dx = target.x - r.x;
       const dz = target.z - r.z;
       const dist = Math.hypot(dx, dz);
@@ -10206,7 +10232,7 @@
       if (DUEL.chipAccum > 0.15 && raceChip) {
         DUEL.chipAccum = 0;
         const rDist = Math.hypot(r.x - DUEL.finish.x, r.z - DUEL.finish.z);
-        raceChip.textContent = `🚦 ĐUA GỠ PHẠT — Đích: ${DUEL.finish.name} • Bạn còn ${Math.round(pDist)}m • Đối thủ còn ${Math.round(rDist)}m`;
+        raceChip.textContent = `🚓 ĐUA GỠ PHẠT — Đích: ${DUEL.finish.name} • Bạn còn ${Math.round(pDist)}m • CSGT còn ${Math.round(rDist)}m`;
       }
     }
     requestAnimationFrame(duelTick);
