@@ -7392,8 +7392,8 @@
         const ltex = new THREE.CanvasTexture(lc);
         ltex.colorSpace = THREE.SRGBColorSpace;
         const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: ltex, transparent: true }));
-        label.scale.set(isSelf ? 15 : 12, isSelf ? 3.8 : 2.7, 1);
-        label.position.set(0, 12.6, 0);
+        label.scale.set(isSelf ? 10.5 : 8.5, isSelf ? 2.7 : 1.9, 1);
+        label.position.set(0, 11.6, 0);
         root.add(label);
 
         return {
