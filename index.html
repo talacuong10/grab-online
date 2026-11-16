@@ -2413,7 +2413,7 @@
     const state = {
       joined: false,
       driverName: loadSavedName() || 'Cường Xe Ôm',
-      balance: (savedData && Number.isFinite(savedData.balance)) ? savedData.balance : 350000,
+      balance: (savedData && Number.isFinite(savedData.balance)) ? savedData.balance : 100000,
       completedOrders: (savedData && Number.isFinite(savedData.completedOrders)) ? savedData.completedOrders : 0,
       ownedVehicles: initialOwned,
       currentVehicleId: normalizeVehicleId(savedData && savedData.currentVehicleId),
@@ -3267,7 +3267,7 @@
     }
 
     function resetEntireGame() {
-      state.balance = 0;
+      state.balance = 100000;
       state.completedOrders = 0;
       state.ownedVehicles = ['wave'];
       state.currentVehicleId = 'wave';
