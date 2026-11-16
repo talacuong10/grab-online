@@ -678,6 +678,7 @@
       <div id="race-chip" class="hidden px-4 py-2 rounded-2xl bg-slate-900/85 text-white text-xs font-extrabold shadow-xl border border-amber-300/60"></div>
       <div id="sidewalk-chip" class="hidden px-4 py-2 rounded-2xl bg-red-900/85 text-white text-xs font-extrabold shadow-xl border border-red-300/60"></div>
       <div id="unlock-chip" class="hidden px-4 py-2 rounded-2xl bg-orange-600/90 text-white text-xs font-extrabold shadow-xl border border-orange-200/70">🔓 UNLOCK SPEED — đang phá giới hạn tốc độ!</div>
+      <div id="bot-chip" class="hidden pointer-events-auto cursor-pointer px-4 py-2 rounded-2xl bg-purple-600/92 text-white text-xs font-extrabold shadow-xl border border-purple-200/70"></div>
     </div>
 
     <!-- Popup ĐUA GỠ PHẠT khi vượt đèn đỏ -->
@@ -2392,7 +2393,7 @@
 
     // ==================== 4. TRẠNG THÁI & LƯU TIẾN TRÌNH ====================
     const STORAGE_KEY = 'grab_q1_singlefile_v1';
-    const NAME_KEY = 'grab_q1_driver_name_v3';
+    const NAME_KEY = 'grab_q1_driver_name_v4';
     // Xóa sạch dữ liệu lưu KIỂU CŨ (bản trước khi có tài khoản) trên máy người chơi.
     // Từ bản này: chơi KHÁCH (không mật khẩu) = mỗi lần vào làm lại từ đầu;
     // có TÀI KHOẢN (tên + mật khẩu, section 13) thì tiến trình được lưu và khôi phục đầy đủ.
@@ -9649,14 +9650,18 @@
       Array.from(MP.remotes.keys()).forEach(mpRemoveRemote);
     }
 
-    // Bản ONLINE: tắt toàn bộ tài xế ảo (bot) — phòng online chỉ có tài xế THẬT chơi với nhau.
+    // Bản ONLINE: giảm tài xế ảo xuống còn 5 Grab Bot chạy phố cho sinh động (sếp đổi ý tối 2026-11-16:
+    // trước bắt tắt hết, nay giữ lại một ít chạy ngoài đường cho vui). Bảng online vẫn chỉ liệt kê tài xế thật.
     let mpBotsDisabled = false;
     function mpDisableBots() {
       if (mpBotsDisabled || !world.aiDrivers) return;
       mpBotsDisabled = true;
-      world.aiDrivers.forEach((ai) => { if (ai.mesh) world.scene.remove(ai.mesh); });
-      world.aiDrivers.length = 0;
-      appendRadio('Hệ thống', '🤖 Đã tắt 15 tài xế ảo — phòng online chỉ có tài xế thật.', true);
+      const KEEP_BOTS = 5;
+      while (world.aiDrivers.length > KEEP_BOTS) {
+        const ai = world.aiDrivers.pop();
+        if (ai && ai.mesh) world.scene.remove(ai.mesh);
+      }
+      appendRadio('Hệ thống', '🤖 Đã giảm tài xế ảo — giữ lại 5 Grab Bot chạy phố cho sinh động.', true);
     }
 
     function mpDoJoin() {
@@ -9974,9 +9979,9 @@
       const ms = Date.now() - RACE.startedAt;
       const t = fmtRaceTime(ms);
       let best = 0;
-      try { best = Number(localStorage.getItem('grab_q1_race_best_ms_v3')) || 0; } catch (_) { }
+      try { best = Number(localStorage.getItem('grab_q1_race_best_ms_v4')) || 0; } catch (_) { }
       const isRecord = !best || ms < best;
-      if (isRecord) { try { localStorage.setItem('grab_q1_race_best_ms_v3', String(ms)); } catch (_) { } }
+      if (isRecord) { try { localStorage.setItem('grab_q1_race_best_ms_v4', String(ms)); } catch (_) { } }
       const reward = ms <= 120000 ? 25000 : (ms <= 180000 ? 15000 : 8000);
       state.balance += reward;
       updateEconomyHUD();
@@ -10293,18 +10298,22 @@
     // Tên NHÂN VẬT (tên tài xế hiển thị trong game) tách riêng khỏi tên đăng nhập, đổi lúc nào cũng được.
     // Đăng nhập lại đúng username + mật khẩu là khôi phục đủ tiền / xe / cấp / nhiệm vụ.
     // Để trống Tên đăng nhập = chơi khách (không lưu, mỗi lần vào làm lại từ đầu).
-    // Bản v3 RESET TOÀN BỘ data theo yêu cầu sếp (2026-11-16 tối): tài khoản v1/v2, phiên đăng nhập,
-    // tên đã nhớ và kỷ lục đua cũ đều bị xóa — mọi người chơi bắt đầu lại từ đầu.
+    // Bản v4 RESET TOÀN BỘ data lần nữa theo yêu cầu sếp (2026-11-16 khuya): tài khoản v1/v2/v3, phiên
+    // đăng nhập, tên đã nhớ và kỷ lục đua cũ đều bị xóa — mọi người chơi bắt đầu lại từ đầu.
     var ACC = { current: null };
-    const ACCOUNTS_KEY = 'grab_q1_accounts_v3';
-    const SESSION_KEY = 'grab_q1_session_v3';
+    const ACCOUNTS_KEY = 'grab_q1_accounts_v4';
+    const SESSION_KEY = 'grab_q1_session_v4';
     try {
       localStorage.removeItem('grab_q1_accounts_v1');
       localStorage.removeItem('grab_q1_session_v1');
       localStorage.removeItem('grab_q1_accounts_v2');
       localStorage.removeItem('grab_q1_session_v2');
+      localStorage.removeItem('grab_q1_accounts_v3');
+      localStorage.removeItem('grab_q1_session_v3');
       localStorage.removeItem('grab_q1_driver_name');
+      localStorage.removeItem('grab_q1_driver_name_v3');
       localStorage.removeItem('grab_q1_race_best_ms');
+      localStorage.removeItem('grab_q1_race_best_ms_v3');
     } catch (_) { }
 
     function accLoadStore() {
@@ -10472,6 +10481,221 @@
         hint.textContent = '💾 Chưa có tài khoản nào trên máy này — điền Tên đăng nhập + Mật khẩu (từ 4 ký tự) là hệ thống tự tạo tài khoản và lưu tiến trình cho bạn. Tên nhân vật chỉ để hiển thị trong game.';
       }
     })();
+
+    // ============================================================
+    // 14) KHÁCH BOT — nghề Grab mảng CHỞ KHÁCH (sếp yêu cầu tối 2026-11-16):
+    // 12 khách bot đứng chờ khắp quận; chạy tới gần + dừng xe + bấm T (hoặc chạm chip)
+    // là khách leo lên ngồi sau, chỉ đường tím tới điểm đến, tới nơi trả tiền cuốc.
+    // Bấm T giữa đường = cho khách xuống sớm (không tính tiền), khách đứng chờ tiếp tại chỗ đó.
+    // ============================================================
+    const botChip = $('bot-chip');
+    const botFmt = (n) => n.toLocaleString('vi-VN') + 'đ';
+    const BOTC = { spawned: false, riding: null, pillion: null, near: null, list: [] };
+    const BOT_DEFS = [
+      { name: 'Chị Tư Bánh Tráng', x: -378, z: 138, jacket: 0xdb2777, helmet: 0xf9a8d4, pants: 0x1e293b },
+      { name: 'Anh Bảy Cà Phê', x: 150, z: 172, jacket: 0x2563eb, helmet: 0x93c5fd, pants: 0x334155 },
+      { name: 'Cô Út Trà Sữa', x: 108, z: 548, jacket: 0xf59e0b, helmet: 0xfde68a, pants: 0x44403c },
+      { name: 'Chú Ba Hủ Tiếu', x: -106, z: -508, jacket: 0x059669, helmet: 0x6ee7b7, pants: 0x1f2937 },
+      { name: 'Chị Năm Xôi Gà', x: 278, z: 248, jacket: 0xdc2626, helmet: 0xfca5a5, pants: 0x292524 },
+      { name: 'Anh Sáu Bún Bò', x: 338, z: -508, jacket: 0x7c3aed, helmet: 0xc4b5fd, pants: 0x1e293b },
+      { name: 'Cô Ba Bánh Mì', x: -1028, z: 392, jacket: 0xea580c, helmet: 0xfed7aa, pants: 0x3f3f46 },
+      { name: 'Anh Tư Cơm Tấm', x: 27, z: -288, jacket: 0x0891b2, helmet: 0xa5f3fc, pants: 0x164e63 },
+      { name: 'Chị Bảy Chè', x: -408, z: -178, jacket: 0xbe185d, helmet: 0xfbcfe8, pants: 0x27272a },
+      { name: 'Anh Năm Nước Mía', x: -168, z: -968, jacket: 0x65a30d, helmet: 0xd9f99d, pants: 0x365314 },
+      { name: 'Cô Tư Sinh Tố', x: 468, z: -173, jacket: 0x9333ea, helmet: 0xe9d5ff, pants: 0x312e81 },
+      { name: 'Chú Sáu Bánh Ướt', x: -33, z: 132, jacket: 0x0d9488, helmet: 0x99f6e4, pants: 0x134e4a }
+    ];
+
+    function botMakeStanding(def) {
+      const g = new THREE.Group();
+      const skin = new THREE.MeshStandardMaterial({ color: 0xf4c29a, roughness: 0.6 });
+      const jacket = new THREE.MeshStandardMaterial({ color: def.jacket, roughness: 0.5 });
+      const pants = new THREE.MeshStandardMaterial({ color: def.pants, roughness: 0.8 });
+      [-1, 1].forEach((s) => {
+        const leg = new THREE.Mesh(new THREE.CapsuleGeometry(0.17, 0.75, 4, 8), pants);
+        leg.position.set(s * 0.24, 0.62, 0);
+        const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.13, 0.62, 4, 8), jacket);
+        arm.position.set(s * 0.68, 1.62, 0);
+        arm.rotation.z = s * 0.12;
+        g.add(leg, arm);
+      });
+      const torso = new THREE.Mesh(new RoundedBoxGeometry(1.05, 1.2, 0.55, 3, 0.16), jacket);
+      torso.position.y = 1.68;
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.34, 14, 12), skin);
+      head.position.y = 2.62;
+      const cap = new THREE.Mesh(
+        new THREE.SphereGeometry(0.37, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.55),
+        new THREE.MeshStandardMaterial({ color: def.helmet, roughness: 0.35 })
+      );
+      cap.position.y = 2.68;
+      const plateTex = world.makeSignSprite('🧍 ' + def.name, '#4c1d95', '#ffffff', '#c4b5fd');
+      const plate = new THREE.Sprite(new THREE.SpriteMaterial({ map: plateTex, transparent: true }));
+      plate.scale.set(11.5, 2.3, 1);
+      plate.position.y = 3.9;
+      g.add(torso, head, cap, plate);
+      g.position.set(def.x, 0.7, def.z);
+      return g;
+    }
+
+    function botSpawnAll() {
+      if (BOTC.spawned) return;
+      BOTC.spawned = true;
+      BOT_DEFS.forEach((def) => {
+        const grp = botMakeStanding(def);
+        world.scene.add(grp);
+        BOTC.list.push({ def, group: grp, state: 'waiting', dest: null, fare: 0, preview: null, respawnAt: 0, homeX: def.x, homeZ: def.z });
+      });
+      appendRadio('Hệ thống', `🧍 Có ${BOT_DEFS.length} khách bot đang chờ xe khắp quận — chạy tới gần, dừng xe, bấm T để đón chở đi ăn tiền cuốc!`, true);
+    }
+
+    function botPickDest(fromX, fromZ) {
+      const spots = [...PICKUP_SPOTS, ...DROPOFF_SPOTS].map((s) => ({
+        name: s.name, x: s.x, z: s.z, d: Math.hypot(s.x - fromX, s.z - fromZ)
+      }));
+      let pool = spots.filter((s) => s.d >= 320 && s.d <= 950);
+      if (!pool.length) pool = [...spots].sort((a, b) => b.d - a.d).slice(0, 4);
+      const pick = pool[Math.floor(Math.random() * pool.length)];
+      const road = pick.d * 1.25;
+      return { name: pick.name, x: pick.x, z: pick.z, fare: Math.round((10000 + road * 22) / 1000) * 1000 };
+    }
+
+    function botNavApply() {
+      const bot = BOTC.riding;
+      if (!bot || !bot.dest) return;
+      world.navOverrideTarget = { name: 'Chở khách: ' + bot.dest.name, x: bot.dest.x, z: bot.dest.z, hex: 0xa855f7, css: '#a855f7' };
+    }
+    function botNavClear() {
+      if (world.navOverrideTarget && world.navOverrideTarget.hex === 0xa855f7) world.navOverrideTarget = null;
+    }
+
+    function botPickup(bot) {
+      const dest = bot.preview || botPickDest(world.player.x, world.player.z);
+      bot.dest = dest;
+      bot.fare = dest.fare;
+      bot.state = 'riding';
+      bot.group.visible = false;
+      const fig = world.createDriverMesh(1);
+      fig.position.set(0, 0, -3.1);
+      fig.scale.setScalar(0.94);
+      const spec = resolveDriverStyle(state.currentStyleId);
+      fig.traverse((o) => {
+        if (!o.isMesh || !o.material || !o.material.color || o.material.transparent) return;
+        const h = o.material.color.getHex();
+        if (h === spec.jacketHex || h === spec.darkHex) { o.material = o.material.clone(); o.material.color.setHex(bot.def.jacket); }
+        else if (h === spec.helmetHex) { o.material = o.material.clone(); o.material.color.setHex(bot.def.helmet); }
+        else if (h === spec.jeansHex) { o.material = o.material.clone(); o.material.color.setHex(bot.def.pants); }
+      });
+      world.player.mesh.add(fig);
+      BOTC.pillion = fig;
+      BOTC.riding = bot;
+      botNavApply();
+      showGameToast(`🧍 Đã đón ${bot.def.name}! Chở tới ${dest.name} — cuốc ${botFmt(bot.fare)}`, 3200);
+      appendRadio(bot.def.name, `Cho tui tới ${dest.name} nha tài xế, chạy êm êm tui trả đủ ${botFmt(bot.fare)} nè!`, false);
+    }
+
+    function botDetachPillion() {
+      if (BOTC.pillion && BOTC.pillion.parent) BOTC.pillion.parent.remove(BOTC.pillion);
+      BOTC.pillion = null;
+      BOTC.riding = null;
+      botNavClear();
+    }
+
+    function botComplete() {
+      const bot = BOTC.riding;
+      if (!bot) return;
+      state.balance += bot.fare;
+      updateEconomyHUD();
+      persistSaveData();
+      showGameToast(`💰 ${bot.def.name} trả ${botFmt(bot.fare)} — cảm ơn khách!`, 3000);
+      appendRadio(bot.def.name, 'Tới nơi rồi, cảm ơn tài xế! ⭐⭐⭐⭐⭐', false);
+      botDetachPillion();
+      bot.state = 'away';
+      bot.preview = null;
+      bot.respawnAt = Date.now() + 45000 + Math.random() * 30000;
+      bot.group.visible = false;
+    }
+
+    function botDropEarly() {
+      const bot = BOTC.riding;
+      if (!bot) return;
+      showGameToast(`🧍 ${bot.def.name} xuống xe giữa đường — cuốc này không tính tiền.`, 2600);
+      appendRadio(bot.def.name, 'Thôi tui xuống đây cũng được, cảm ơn tài xế!', false);
+      botDetachPillion();
+      bot.state = 'waiting';
+      bot.preview = null;
+      bot.homeX = world.player.x + 4;
+      bot.homeZ = world.player.z + 4;
+      bot.group.position.set(bot.homeX, 0.7, bot.homeZ);
+      bot.group.visible = true;
+    }
+
+    function botToggleRide() {
+      if (!state.joined || state.isGameOver) return;
+      if (BOTC.riding) { botDropEarly(); return; }
+      if (FEAT.racing || DUEL.open || DUEL.active) { showGameToast('🏁 Đang đua — không đón khách được!', 2000); return; }
+      const bot = BOTC.near;
+      if (!bot) return;
+      if (Math.abs(world.player.speed) >= 5) { showGameToast('🛑 Dừng xe hẳn mới đón được khách!', 2000); return; }
+      botPickup(bot);
+    }
+    if (botChip) botChip.addEventListener('click', botToggleRide);
+    document.addEventListener('keydown', (e) => {
+      if (e.code !== 'KeyT' || state.isTyping) return;
+      botToggleRide();
+    });
+
+    let botChipLast = '';
+    function botChipShow(html) {
+      if (!botChip || html === botChipLast) return;
+      botChipLast = html;
+      botChip.innerHTML = html;
+      botChip.classList.remove('hidden');
+    }
+    function botChipHide() {
+      if (!botChip || botChipLast === '') return;
+      botChipLast = '';
+      botChip.classList.add('hidden');
+    }
+
+    setInterval(() => {
+      if (!state.joined || state.isGameOver) { botChipHide(); return; }
+      if (!BOTC.spawned) botSpawnAll();
+      const now = Date.now();
+      BOTC.list.forEach((b) => {
+        if (b.state === 'away' && now >= b.respawnAt) {
+          b.state = 'waiting';
+          b.group.position.set(b.homeX, 0.7, b.homeZ);
+          b.group.visible = true;
+        }
+      });
+      const riding = BOTC.riding;
+      if (riding) {
+        if (BOTC.pillion && BOTC.pillion.parent !== world.player.mesh) world.player.mesh.add(BOTC.pillion);
+        const d = Math.hypot(world.player.x - riding.dest.x, world.player.z - riding.dest.z);
+        if (d < 26) { botComplete(); botChipHide(); return; }
+        if (!world.navOverrideTarget) botNavApply();
+        botChipShow(`🧑‍🤝‍🧑 Đang chở <b>${riding.def.name}</b> → ${riding.dest.name} • còn ${Math.round(d)}m • Bấm <b>T</b> cho khách xuống sớm`);
+        return;
+      }
+      let best = null;
+      let bestD = Infinity;
+      BOTC.list.forEach((b) => {
+        if (b.state !== 'waiting') return;
+        const d = Math.hypot(world.player.x - b.group.position.x, world.player.z - b.group.position.z);
+        if (d < bestD) { bestD = d; best = b; }
+      });
+      const nearNow = best && bestD <= 10 ? best : null;
+      if (nearNow !== BOTC.near) {
+        BOTC.near = nearNow;
+        if (nearNow && !nearNow.preview) nearNow.preview = botPickDest(world.player.x, world.player.z);
+      }
+      if (BOTC.near) {
+        const p = BOTC.near.preview;
+        botChipShow(`🧍 <b>${BOTC.near.def.name}</b> muốn đi ${p.name} — cuốc <b>${botFmt(p.fare)}</b> • Dừng xe + bấm <b>T</b> để đón`);
+      } else {
+        botChipHide();
+      }
+    }, 450);
   </script>
 </body>
 
