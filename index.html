@@ -174,6 +174,8 @@
         top: 148px;
       }
     }
+    #unlock-btn.feat-on { background: #ea580c !important; color: #fff !important; box-shadow: 0 0 18px rgba(234,88,12,.75); }
+    #race-btn.feat-on { background: #b45309 !important; color: #fff !important; box-shadow: 0 0 18px rgba(245,158,11,.7); }
   </style>
 </head>
 
@@ -229,6 +231,10 @@
           <div><b class="text-slate-800">Kéo chuột / Lăn:</b> Xoay / Zoom</div>
           <div><b class="text-slate-800">Shift / Space:</b> Tăng tốc / Phanh</div>
           <div><b class="text-slate-800">E / G / J / F:</b> Đơn / Xe / NV / Giải trí</div>
+          <div><b class="text-slate-800">X:</b> Mở khóa tốc độ (coi chừng phạt nguội!)</div>
+          <div><b class="text-slate-800">Space + cua gấp:</b> Drift cháy đường</div>
+          <div><b class="text-slate-800">C:</b> Đua phố Quận 1 tính giờ</div>
+          <div><b class="text-slate-800">Leo lề:</b> Nhanh nhưng nguy cơ bị CSGT bắt tăng dần!</div>
         </div>
 
         <div id="login-error-msg"
@@ -659,8 +665,25 @@
       </div>
     </section>
 
+    <!-- Chips tính năng: đua phố / leo lề / unlock -->
+    <div id="feat-chips" class="fixed bottom-24 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-1.5 pointer-events-none">
+      <div id="race-chip" class="hidden px-4 py-2 rounded-2xl bg-slate-900/85 text-white text-xs font-extrabold shadow-xl border border-amber-300/60"></div>
+      <div id="sidewalk-chip" class="hidden px-4 py-2 rounded-2xl bg-red-900/85 text-white text-xs font-extrabold shadow-xl border border-red-300/60"></div>
+      <div id="unlock-chip" class="hidden px-4 py-2 rounded-2xl bg-orange-600/90 text-white text-xs font-extrabold shadow-xl border border-orange-200/70">🔓 UNLOCK SPEED — đang phá giới hạn tốc độ!</div>
+    </div>
+
     <!-- Đồng hồ tốc độ & Còi (Góc dưới phải) -->
     <div class="pointer-events-auto fixed bottom-3 right-3 flex items-end gap-2">
+      <button id="race-btn" type="button"
+        class="hud-card hover:bg-emerald-50 active:scale-95 rounded-2xl px-3.5 py-3 text-sm font-extrabold text-slate-700 cursor-pointer"
+        title="Đua phố Quận 1 (C)">
+        🏁 <span class="text-xs">Đua (C)</span>
+      </button>
+      <button id="unlock-btn" type="button"
+        class="hud-card hover:bg-emerald-50 active:scale-95 rounded-2xl px-3.5 py-3 text-sm font-extrabold text-slate-700 cursor-pointer"
+        title="Mở khóa tốc độ (X)">
+        🔓 <span class="text-xs">Unlock (X)</span>
+      </button>
       <button id="horn-btn" type="button"
         class="hud-card hover:bg-emerald-50 active:scale-95 rounded-2xl px-3.5 py-3 text-sm font-extrabold text-slate-700 cursor-pointer"
         title="Còi xe (H)">
@@ -694,6 +717,8 @@
             class="rounded-2xl bg-indigo-600 text-white font-extrabold px-3.5 py-3 text-xs shadow-lg">📋</button>
           <button id="mobile-boost-btn" type="button"
             class="rounded-2xl bg-amber-500 text-white font-extrabold px-4 py-3 text-xs shadow-lg">⚡ TĂNG TỐC</button>
+          <button id="mobile-drift-btn" type="button"
+            class="rounded-2xl bg-fuchsia-600 text-white font-extrabold px-4 py-3 text-xs shadow-lg">🌀 DRIFT</button>
         </div>
         <button id="mobile-interact-btn" type="button"
           class="rounded-2xl bg-[#00b14f] text-white font-extrabold px-4 py-3 text-xs shadow-lg">📦 NHẬN ĐƠN</button>
@@ -3255,7 +3280,7 @@
     }
 
     function offerNewOrder(manual = false) {
-      if (!state.joined || state.orderPhase !== 'idle' || state.activeVenueId) return;
+      if (!state.joined || state.orderPhase !== 'idle' || state.activeVenueId || FEAT.racing) return;
       if (!manual && !state.autoOfferOrders) return;
       const order = generateOrder();
       state.pendingOrder = order;
@@ -6658,19 +6683,50 @@
         }
 
         const onSidewalk = !onRoadSurface;
-        if ((onSidewalk || wrongWay) && Math.abs(this.player.speed) > 16 && state.violationCooldown <= 0) {
+
+        // === TÍNH NĂNG LEO LỀ: nguy cơ bị bắt tăng dần theo thời gian leo lề, mỗi 1 giây tung xúc xắc 1 lần ===
+        if (onSidewalk && Math.abs(this.player.speed) > 12 && state.violationCooldown <= 0) {
+          state.sidewalkTime = (state.sidewalkTime || 0) + dt;
+          state.sidewalkRisk = Math.min(92, 12 + state.sidewalkTime * 9);
+          state.sidewalkRoll = (state.sidewalkRoll || 0) + dt;
+          featSidewalkUI(Math.round(state.sidewalkRisk));
+          if (state.sidewalkRoll >= 1.0) {
+            state.sidewalkRoll = 0;
+            const nearHotspot = this.trafficIntersections.some((it) => it.isHotspot && Math.hypot(this.player.x - it.x, this.player.z - it.z) < 110);
+            const catchP = Math.min(0.85, (state.sidewalkRisk / 100) * (nearHotspot ? 1.5 : 1));
+            if (Math.random() < catchP) {
+              state.sidewalkTime = 0;
+              state.sidewalkRisk = 0;
+              featSidewalkUI(0);
+              state.violationCooldown = 4.0;
+              state.balance -= 50000;
+              state.finesCount += 1;
+              persistSaveData();
+              updateEconomyHUD();
+              audio.playPoliceSiren();
+              this.player.speed *= 0.2;
+              showPoliceFineOverlay('🚓 BỊ BẮT KHI ĐANG LEO LỀ (-50.000đ)!', 'CSGT vẫy bạn lại vì chạy xe trên vỉa hè. Xuống lòng đường mà chạy nhé!');
+              appendRadio('CSGT Quận 1', '🚓 Có tài xế vừa bị bắt vì leo lề, phạt -50.000đ!', true);
+            }
+          }
+        } else if ((state.sidewalkTime || 0) > 0) {
+          state.sidewalkTime = Math.max(0, state.sidewalkTime - dt * 3);
+          state.sidewalkRisk = state.sidewalkTime > 0 ? Math.min(92, 12 + state.sidewalkTime * 9) : 0;
+          featSidewalkUI(Math.round(state.sidewalkRisk || 0));
+          if (state.sidewalkTime <= 0) featSidewalkUI(0);
+        }
+
+        // === Ngược chiều: giữ cơ chế cũ (quá 3,2 giây thì quay số phạt) ===
+        if (wrongWay && Math.abs(this.player.speed) > 16 && state.violationCooldown <= 0) {
           state.wrongWayTimer += dt;
           if (state.wrongWayTimer > 1.7 && !state.wrongWayWarned) {
             state.wrongWayWarned = true;
-            showGameToast(onSidewalk ? '⚠️ Bạn đang leo vỉa hè! Hãy quay xuống lòng đường!' : '⚠️ Bạn đang chạy ngược chiều! Lách sang làn phải ngay!', 1800);
+            showGameToast('⚠️ Bạn đang chạy ngược chiều! Lách sang làn phải ngay!', 1800);
           }
           if (state.wrongWayTimer >= 3.2) {
             state.wrongWayTimer = 0;
             state.wrongWayWarned = false;
-            this.triggerTrafficEnforcement(
-              onSidewalk ? 'Chạy xe trên vỉa hè quá 3 giây' : 'Đi ngược chiều sai làn quá 3 giây',
-              false
-            );
+            this.triggerTrafficEnforcement('Đi ngược chiều sai làn quá 3 giây', false);
           }
         } else {
           state.wrongWayTimer = Math.max(0, state.wrongWayTimer - dt * 2.5);
@@ -8123,11 +8179,22 @@
             ? 0
             : (isDamaged ? 0.6 : 1.0) * (isTired ? 0.85 : 1.0);
           const sputter = isDamaged && Math.abs(throttle) > 0.05 ? 0.72 + 0.34 * Math.sin(elapsed * 22) : 1.0;
-          const topSpeed = (boost ? veh.maxSpeed * 1.25 : veh.maxSpeed) * speedPenalty;
-          const accelRate = (boost ? veh.accel * 1.3 : veh.accel) * speedPenalty * sputter;
+          const topSpeed = veh.maxSpeed * (FEAT.unlock ? 1.6 : (boost ? 1.25 : 1.0)) * speedPenalty;
+          const accelRate = veh.accel * (FEAT.unlock ? 1.45 : (boost ? 1.3 : 1.0)) * speedPenalty * sputter;
 
+          FEAT.drifting = false;
+          const driftActive = !state.isGameOver && !state.activeVenueId
+            && (braking || state.mobileDrift)
+            && Math.abs(this.player.speed) > 30 && Math.abs(steer) > 0.2;
           if (state.isGameOver || state.activeVenueId) {
             this.player.speed = 0;
+          } else if (driftActive) {
+            // DRIFT: giữ tốc độ, cua gắt, khói lốp, cộng điểm drift
+            FEAT.drifting = true;
+            this.player.speed = THREE.MathUtils.lerp(this.player.speed, 0, dt * 1.15);
+            FEAT.driftScore += Math.abs(this.player.speed) * dt * 1.3;
+            this.driftSmokeAccum = (this.driftSmokeAccum || 0) + dt;
+            if (this.driftSmokeAccum > 0.05) { this.driftSmokeAccum = 0; this.spawnExhaustOrTrail(false); }
           } else if (braking) {
             this.player.speed = THREE.MathUtils.lerp(this.player.speed, 0, dt * 7.2);
           } else if (Math.abs(throttle) > 0.05) {
@@ -8139,7 +8206,7 @@
 
           const speedFactor = Math.min(1, Math.abs(this.player.speed) / 24);
           const turnSign = this.player.speed >= -2 ? 1 : -1;
-          this.player.rotation += steer * veh.turnRate * speedFactor * turnSign * dt;
+          this.player.rotation += steer * veh.turnRate * (FEAT.drifting ? 1.8 : 1) * speedFactor * turnSign * dt;
 
           // Nghiêng xe, rung cà giựt nếu xe hư <30%, xoay tay lái & chuyển động khớp tài xế
           this.player.lean = THREE.MathUtils.lerp(this.player.lean, -steer * 0.28 * speedFactor, 0.16);
@@ -8186,7 +8253,8 @@
           this.checkPlayerTrafficViolations(dt, prevPX, prevPZ);
 
           this.player.mesh.position.set(this.player.x, 0, this.player.z);
-          this.player.mesh.rotation.y = this.player.rotation;
+          FEAT.driftVis = THREE.MathUtils.lerp(FEAT.driftVis || 0, FEAT.drifting ? steer * 0.45 : 0, 0.16);
+          this.player.mesh.rotation.y = this.player.rotation + FEAT.driftVis;
           this.player.wheels.forEach((w) => (w.rotation.x += this.player.speed * dt * 0.45));
 
           // Bốc khói đen liên tục từ đầu xe khi Độ bền < 30% hoặc 0%
@@ -9672,6 +9740,203 @@
       });
     }
     requestAnimationFrame(mpTick);
+
+    // ==================== 11. TÍNH NĂNG MỚI: UNLOCK SPEED • DRIFT • ĐUA PHỐ • LEO LỀ ====================
+    const FEAT = {
+      unlock: false,
+      drifting: false,
+      driftVis: 0,
+      driftScore: 0,
+      driftIdle: 0,
+      wasDrifting: false,
+      speedTime: 0,
+      racing: false,
+    };
+    state.mobileDrift = false;
+
+    const raceChip = $('race-chip');
+    const sidewalkChip = $('sidewalk-chip');
+    const unlockChip = $('unlock-chip');
+    const unlockBtn = $('unlock-btn');
+    const raceBtn = $('race-btn');
+    const mobileDriftBtn = $('mobile-drift-btn');
+
+    // --- LEO LỀ: chip hiển thị % nguy cơ bị bắt (gọi từ checkPlayerTrafficViolations) ---
+    let lastSidewalkShown = -1;
+    function featSidewalkUI(riskPct) {
+      if (!sidewalkChip) return;
+      if (riskPct <= 0) {
+        if (lastSidewalkShown !== 0) { sidewalkChip.classList.add('hidden'); lastSidewalkShown = 0; }
+        return;
+      }
+      if (riskPct === lastSidewalkShown) return;
+      lastSidewalkShown = riskPct;
+      sidewalkChip.classList.remove('hidden');
+      sidewalkChip.textContent = `🧱 ĐANG LEO LỀ — nguy cơ bị CSGT bắt: ${riskPct}%`;
+    }
+
+    // --- UNLOCK SPEED (phím X / nút Unlock) ---
+    function featToggleUnlock() {
+      if (!state.joined || state.isGameOver) return;
+      FEAT.unlock = !FEAT.unlock;
+      if (unlockBtn) unlockBtn.classList.toggle('feat-on', FEAT.unlock);
+      if (unlockChip) unlockChip.classList.toggle('hidden', !FEAT.unlock);
+      showGameToast(FEAT.unlock
+        ? '🔓 ĐÃ MỞ KHÓA TỐC ĐỘ! Phá giới hạn x1.6 — nhưng hao xe & dễ bị phạt nguội!'
+        : '🔒 Đã khóa tốc độ về bình thường.', 2600);
+    }
+    if (unlockBtn) unlockBtn.addEventListener('click', featToggleUnlock);
+
+    // UNLOCK: hao độ bền khi chạy quá giới hạn + quay số phạt quá tốc độ mỗi 2,5 giây
+    setInterval(() => {
+      if (!state.joined || state.isGameOver) return;
+      const veh = getCurrentVehicleSpec();
+      const spd = Math.abs(world.player.speed);
+      if (FEAT.unlock && spd > veh.maxSpeed * 1.02) {
+        state.durability = Math.max(0, state.durability - 0.7);
+        if (hudDurabilityText) hudDurabilityText.textContent = `${Math.round(state.durability)}%`;
+        if (hudDurabilityBar) hudDurabilityBar.style.width = `${Math.max(0, Math.min(100, state.durability))}%`;
+        FEAT.speedTime += 0.5;
+        if (FEAT.speedTime >= 2.5) {
+          FEAT.speedTime = 0;
+          const nearHot = world.trafficIntersections.some((it) => it.isHotspot && Math.hypot(world.player.x - it.x, world.player.z - it.z) < 110);
+          world.triggerTrafficEnforcement('Chạy quá tốc độ sau khi mở khóa giới hạn', nearHot);
+        }
+      } else {
+        FEAT.speedTime = Math.max(0, FEAT.speedTime - 0.5);
+      }
+    }, 500);
+
+    // --- DRIFT: chốt tiền tip khi kết thúc chuỗi drift ---
+    setInterval(() => {
+      if (FEAT.drifting) { FEAT.wasDrifting = true; FEAT.driftIdle = 0; return; }
+      if (FEAT.wasDrifting) {
+        FEAT.driftIdle += 0.12;
+        if (FEAT.driftIdle >= 0.6) {
+          FEAT.wasDrifting = false;
+          const bonus = Math.min(15000, Math.floor(FEAT.driftScore) * 10);
+          FEAT.driftScore = 0;
+          if (bonus >= 2000 && state.joined && !state.isGameOver) {
+            state.balance += bonus;
+            updateEconomyHUD();
+            showGameToast(`🔥 DRIFT CHÁY ĐƯỜNG! Khán giả tip +${formatVND(bonus)}`, 2600);
+          }
+        }
+      }
+    }, 120);
+
+    // --- ĐUA PHỐ QUẬN 1 (phím C / nút Đua): 8 cổng, bấm giờ, có thưởng ---
+    const RACE_GATES = [
+      { name: 'Cổng xuất phát — Chợ Bến Thành', x: -390, z: 150 },
+      { name: 'Phố đi bộ Nguyễn Huệ', x: 162, z: 185 },
+      { name: 'Bến Bạch Đằng', x: 120, z: 560 },
+      { name: 'Lê Thánh Tôn', x: 205, z: -80 },
+      { name: 'Tòa nhà HDBank — Nguyễn Thị Minh Khai', x: 350, z: -520 },
+      { name: 'Hồ Con Rùa', x: -118, z: -520 },
+      { name: 'Phố Tây Bùi Viện', x: -1040, z: 380 },
+      { name: 'VỀ ĐÍCH — Chợ Bến Thành', x: -390, z: 150 },
+    ];
+    const RACE = { gate: 0, startedAt: 0, group: null, ring: null };
+    function raceBuildVisual() {
+      const g = new THREE.Group();
+      const beam = new THREE.Mesh(
+        new THREE.CylinderGeometry(9, 13, 120, 20, 1, true),
+        new THREE.MeshBasicMaterial({ color: 0xf59e0b, transparent: true, opacity: 0.34, side: THREE.DoubleSide, depthWrite: false })
+      );
+      beam.position.y = 60;
+      const ring = new THREE.Mesh(
+        new THREE.RingGeometry(16, 22, 40),
+        new THREE.MeshBasicMaterial({ color: 0xffb020, transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false })
+      );
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.y = 0.6;
+      g.add(beam, ring);
+      g.visible = false;
+      world.scene.add(g);
+      RACE.group = g;
+      RACE.ring = ring;
+    }
+    function racePlaceGate() {
+      const gt = RACE_GATES[RACE.gate];
+      if (!RACE.group) raceBuildVisual();
+      RACE.group.position.set(gt.x, 0, gt.z);
+      RACE.group.visible = true;
+    }
+    function fmtRaceTime(ms) {
+      const s = ms / 1000;
+      return `${Math.floor(s / 60)}:${(s % 60).toFixed(1).padStart(4, '0')}`;
+    }
+    function raceStop(msg) {
+      FEAT.racing = false;
+      if (RACE.group) RACE.group.visible = false;
+      if (raceBtn) raceBtn.classList.remove('feat-on');
+      if (raceChip) raceChip.classList.add('hidden');
+      if (msg) showGameToast(msg, 2200);
+    }
+    function raceFinish() {
+      const ms = Date.now() - RACE.startedAt;
+      const t = fmtRaceTime(ms);
+      let best = 0;
+      try { best = Number(localStorage.getItem('grab_q1_race_best_ms')) || 0; } catch (_) { }
+      const isRecord = !best || ms < best;
+      if (isRecord) { try { localStorage.setItem('grab_q1_race_best_ms', String(ms)); } catch (_) { } }
+      const reward = ms <= 120000 ? 50000 : (ms <= 180000 ? 30000 : 15000);
+      state.balance += reward;
+      updateEconomyHUD();
+      raceStop('');
+      showGameToast(`🏁 VỀ ĐÍCH ${t}${isRecord ? ' — KỶ LỤC MỚI!' : ''} Thưởng +${formatVND(reward)}!`, 5000);
+      appendRadio('Đua phố', `🏁 Bạn hoàn thành Đua Phố Quận 1 trong ${t} (+${formatVND(reward)})`, true);
+      if (MP.socket && MP.joined) mpSendChat(`🏁 Tui vừa đua xong vòng Quận 1 trong ${t}${isRecord ? ' — kỷ lục mới đó' : ''}! Ai phá không?`);
+      audio.playSuccess(true);
+    }
+    function featToggleRace() {
+      if (!state.joined || state.isGameOver) return;
+      if (FEAT.racing) { raceStop('Đã hủy cuộc đua.'); return; }
+      if (state.orderPhase !== 'idle') { showGameToast('🏁 Đang có đơn — giao/hủy đơn xong rồi đua nhé!', 2400); return; }
+      FEAT.racing = true;
+      RACE.gate = 0;
+      RACE.startedAt = 0;
+      racePlaceGate();
+      if (raceBtn) raceBtn.classList.add('feat-on');
+      if (raceChip) { raceChip.classList.remove('hidden'); raceChip.textContent = '🏁 ĐUA PHỐ: chạy tới cổng xuất phát — Chợ Bến Thành để bắt đầu bấm giờ!'; }
+      showGameToast('🏁 ĐUA PHỐ QUẬN 1! Qua cổng Chợ Bến Thành là bắt đầu tính giờ — 8 cổng, về đích nhận thưởng!', 3600);
+      appendRadio('Đua phố', '🏁 Một tài xế vừa khởi động ĐUA PHỐ QUẬN 1!', true);
+    }
+    if (raceBtn) raceBtn.addEventListener('click', featToggleRace);
+    setInterval(() => {
+      if (!FEAT.racing) return;
+      if (RACE.ring) RACE.ring.rotation.z += 0.02;
+      const gt = RACE_GATES[RACE.gate];
+      const d = Math.hypot(world.player.x - gt.x, world.player.z - gt.z);
+      if (raceChip) {
+        const timeTxt = RACE.startedAt ? ` • ⏱ ${fmtRaceTime(Date.now() - RACE.startedAt)}` : '';
+        raceChip.textContent = `🏁 Cổng ${RACE.gate + 1}/${RACE_GATES.length}: ${gt.name} — còn ${Math.round(d)}m${timeTxt}`;
+      }
+      if (d < 30) {
+        if (RACE.gate === 0 && !RACE.startedAt) {
+          RACE.startedAt = Date.now();
+          audio.playSuccess(false);
+          showGameToast('🏁 BẮT ĐẦU BẤM GIỜ! GO GO GO!', 1800);
+        }
+        if (RACE.gate >= RACE_GATES.length - 1) { raceFinish(); return; }
+        RACE.gate += 1;
+        racePlaceGate();
+        audio.playSuccess(false);
+      }
+    }, 120);
+
+    // --- Phím tắt X (unlock) / C (đua) + nút DRIFT trên mobile ---
+    document.addEventListener('keydown', (e) => {
+      if (!state.joined || state.isTyping || e.repeat) return;
+      if (e.code === 'KeyX') featToggleUnlock();
+      if (e.code === 'KeyC') featToggleRace();
+    });
+    if (mobileDriftBtn) {
+      mobileDriftBtn.addEventListener('touchstart', () => (state.mobileDrift = true), { passive: true });
+      mobileDriftBtn.addEventListener('touchend', () => (state.mobileDrift = false), { passive: true });
+      mobileDriftBtn.addEventListener('mousedown', () => (state.mobileDrift = true));
+      mobileDriftBtn.addEventListener('mouseup', () => (state.mobileDrift = false));
+    }
   </script>
 </body>
 
